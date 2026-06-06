@@ -149,7 +149,17 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
       return;
     }
 
-    const newReqId = `REQ-EXISTENTE-${fundRequests.length + 101}`;
+    const dateTarget = existingExpectedDate ? new Date(existingExpectedDate + "T12:00:00") : new Date();
+    const yr = dateTarget.getFullYear();
+    const mo = String(dateTarget.getMonth() + 1).padStart(2, '0');
+    const prefix = `${yr}-${mo}`;
+    
+    const currentMonthCount = fundRequests.filter(fr => {
+      const frDate = fr.expectedDate || (fr.id.startsWith("FPR-") ? `${fr.id.split("-")[1]}-${fr.id.split("-")[2]}` : "");
+      return frDate && frDate.startsWith(prefix);
+    }).length;
+
+    const newReqId = `FPR-${yr}-${mo}-${currentMonthCount + 1}`;
 
     const newReq: FundRequest = {
       id: newReqId,
@@ -274,8 +284,20 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
     setTimeout(() => {
       const selectedDeptObj = departments.find(d => d.id === selectedDeptId);
       
+      const dateTarget = new Date();
+      const yr = dateTarget.getFullYear();
+      const mo = String(dateTarget.getMonth() + 1).padStart(2, '0');
+      const prefix = `${yr}-${mo}`;
+      
+      const currentMonthCount = fundRequests.filter(fr => {
+        const frDate = fr.expectedDate || (fr.id.startsWith("FPR-") ? `${fr.id.split("-")[1]}-${fr.id.split("-")[2]}` : "");
+        return frDate && frDate.startsWith(prefix);
+      }).length;
+
+      const newReqId = `FPR-${yr}-${mo}-${currentMonthCount + 1}`;
+      
       const newReq: FundRequest = {
-        id: "REQ-2024-0" + (fundRequests.length + 42),
+        id: newReqId,
         department: selectedDeptObj?.name || "Administración",
         applicant: applicant,
         amount: reqVal,

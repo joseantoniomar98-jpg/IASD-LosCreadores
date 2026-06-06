@@ -26,6 +26,14 @@ interface RendicionesProps {
   bankList?: string[];
   documentTypes?: string[];
   boardVotos?: BoardVoto[];
+  googleDriveConfig?: {
+    connected: boolean;
+    folderId: string;
+    folderName: string;
+    autoSync: boolean;
+    syncRendiciones: boolean;
+    syncBalances: boolean;
+  };
 }
 
 export const RendicionesView: React.FC<RendicionesProps> = ({
@@ -65,7 +73,8 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
     "Ticket",
     "Recibo",
     "Otro"
-  ]
+  ],
+  googleDriveConfig
 }) => {
   // Determine if the user is a global administrative officer/auditor
   const isGlobalManager = (currentUser?.roles.some(r => 
@@ -310,23 +319,23 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
     doc.rect(10, y, 190, 7.5, "F");
 
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setTextColor(255, 255, 255);
 
-    const headers = ["FECHA", "DOC / COMPROBANTE", "RUT PROVEEDOR", "DETALLE / GLOSA DE GASTO", "MONTO CLP"];
-    const colWidths = [24, 45, 28, 63, 30];
+    const headers = ["FECHA", "VALOR CLP", "TIPO DOC", "N° DOC", "RUT PROV.", "PROVEEDOR", "CATEGORÍA", "DESCRIPCIÓN"];
+    const colWidths = [16, 20, 16, 15, 22, 28, 28, 45]; // Total sum is exactly 190
 
     let currentX = 10;
     headers.forEach((h, idx) => {
-      const align = (idx === 4) ? "right" : "left";
-      const txtX = align === "right" ? currentX + colWidths[idx] - 3 : currentX + 3;
+      const align = (idx === 1) ? "right" : "left";
+      const txtX = align === "right" ? currentX + colWidths[idx] - 2 : currentX + 2;
       doc.text(h, txtX, y + 4.8, { align });
       currentX += colWidths[idx];
     });
 
     y += 7.5;
     doc.setFont("Helvetica", "normal");
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setTextColor(30, 41, 59);
 
     const approvedSum = rend.items
@@ -342,21 +351,40 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
       doc.line(10, y + 6.5, 200, y + 6.5);
 
       let colX = 10;
-      doc.text(it.date || "S/F", colX + 3, y + 4.5);
+      
+      // Fecha Gasto
+      doc.text(it.date || "S/F", colX + 2, y + 4.5);
       colX += colWidths[0];
 
-      doc.text(`${it.docType || "Boleta"} ${it.category ? `(${it.category})` : ""}`.substring(0, 22), colX + 3, y + 4.5);
+      // Valor CLP
+      doc.setFont("Helvetica", "bold");
+      doc.text(`$ ${it.amount.toLocaleString("es-CL")}`, colX + colWidths[1] - 2, y + 4.5, { align: "right" });
+      doc.setFont("Helvetica", "normal");
       colX += colWidths[1];
 
-      doc.text(it.rut || "76.000.000-1", colX + 3, y + 4.5);
+      // Tipo Doc.
+      doc.text((it.docType || "Boleta").substring(0, 11), colX + 2, y + 4.5);
       colX += colWidths[2];
 
-      doc.text((it.description || "Gasto declarado").substring(0, 36), colX + 3, y + 4.5);
+      // Número Doc.
+      doc.text((it.docNumber || "S/N").substring(0, 11), colX + 2, y + 4.5);
       colX += colWidths[3];
 
-      doc.setFont("Helvetica", "bold");
-      doc.text(`$ ${it.amount.toLocaleString("es-CL")}`, colX + colWidths[4] - 3, y + 4.5, { align: "right" });
-      doc.setFont("Helvetica", "normal");
+      // RUT Proveedor
+      doc.text((it.rut || "S/R").substring(0, 14), colX + 2, y + 4.5);
+      colX += colWidths[4];
+
+      // Proveedor
+      doc.text((it.providerName || "S/P").substring(0, 18), colX + 2, y + 4.5);
+      colX += colWidths[5];
+
+      // Categoría
+      doc.text((it.category || "Otros").substring(0, 18), colX + 2, y + 4.5);
+      colX += colWidths[6];
+
+      // Descripción
+      doc.text((it.description || "Gasto").substring(0, 30), colX + 2, y + 4.5);
+      colX += colWidths[7];
 
       y += 6.5;
     });
@@ -729,7 +757,7 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
 
             <div class="signature-box">
               <div style="height: 10px;"></div>
-              <div class="sig-title">Firma Tesorero de Iglesia<br/><strong>Tesorero General / Asistente</strong></div>
+              <div class="sig-title">Firma Tesorero de Iglesia<br/><strong>Tesorero de Iglesia / Asistente</strong></div>
             </div>
           </div>
         </body>
@@ -819,6 +847,8 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
   const [itemDate, setItemDate] = useState("");
   const [itemCategory, setItemCategory] = useState("Alimentación");
   const [itemDocType, setItemDocType] = useState("Boleta");
+  const [itemDocNumber, setItemDocNumber] = useState("");
+  const [itemProviderName, setItemProviderName] = useState("");
   const [itemRut, setItemRut] = useState("");
   const [itemAmount, setItemAmount] = useState("");
   const [itemDesc, setItemDesc] = useState("");
@@ -836,6 +866,8 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
       date: itemDate,
       category: itemCategory,
       docType: itemDocType,
+      docNumber: itemDocNumber,
+      providerName: itemProviderName,
       rut: itemRut,
       amount: parsedAmount,
       receiptUploaded: !!itemReceiptUrl,
@@ -848,6 +880,8 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
     setItemAmount("");
     setItemDesc("");
     setItemReceiptUrl("");
+    setItemDocNumber("");
+    setItemProviderName("");
   };
 
   const handleRemoveDraftLine = (id: string) => {
@@ -893,10 +927,23 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
       savedTransferDetails = true;
     }
 
-    const driveFolderSlug = newDept.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const now = new Date();
+    const yr = now.getFullYear();
+    const mo = String(now.getMonth() + 1).padStart(2, '0');
+    const prefix = `${yr}-${mo}`;
+    
+    const currentMonthCount = renditions.filter(r => {
+      const rDate = r.dateSent || (r.id.startsWith("RD-") ? `${r.id.split("-")[1]}-${r.id.split("-")[2]}` : "");
+      return rDate && rDate.startsWith(prefix);
+    }).length;
+
+    const generatedCode = `RD-${yr}-${mo}-${currentMonthCount + 1}`;
+    const rootFolderId = googleDriveConfig?.folderId || "1pMh4fG9K1a8B8_JdD9z3SxFg9Lp29M1k";
+    const comprobantesDriveUrl = `https://drive.google.com/drive/folders/${rootFolderId}/${generatedCode}`;
+
     const newRend: ExpenseRendition = {
-      id: "rend-" + (renditions.length + 10),
-      folio: "RD-2024-" + (renditions.length + 1204),
+      id: generatedCode,
+      folio: generatedCode,
       dateSent: new Date().toISOString().split("T")[0],
       applicant: newApplicant,
       department: newDept,
@@ -904,9 +951,7 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
       items: draftItems.map(it => ({ ...it, receiptUploaded: true })),
       totalAmount: draftTotalSum,
       status: "Pendiente",
-      comprobantesDriveUrl: uploadedComprobantes.length > 0 
-        ? `https://drive.google.com/drive/folders/tesoreria_rendiciones_${driveFolderSlug}`
-        : `https://drive.google.com/drive/folders/tesoreria_rendiciones_general`,
+      comprobantesDriveUrl,
       acmsStatus: "Pendiente",
       pagada: false,
       
@@ -1285,15 +1330,31 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                                 </td>
                                 <td className="px-2 py-2">
                                   <div className="space-y-1">
-                                    <select
-                                      value={it.docType}
-                                      onChange={(e) => updateEditItemField(it.id, "docType", e.target.value)}
-                                      className="w-full bg-white border border-slate-300 rounded p-1 text-[11px] font-bold"
-                                    >
-                                      {documentTypes.map(dt => (
-                                        <option key={dt} value={dt}>{dt}</option>
-                                      ))}
-                                    </select>
+                                    <div className="flex gap-1.5 animate-fade-in">
+                                      <select
+                                        value={it.docType}
+                                        onChange={(e) => updateEditItemField(it.id, "docType", e.target.value)}
+                                        className="w-1/2 bg-white border border-slate-300 rounded p-1 text-[11px] font-bold"
+                                      >
+                                        {documentTypes.map(dt => (
+                                          <option key={dt} value={dt}>{dt}</option>
+                                        ))}
+                                      </select>
+                                      <input
+                                        type="text"
+                                        value={it.docNumber || ""}
+                                        onChange={(e) => updateEditItemField(it.id, "docNumber", e.target.value)}
+                                        placeholder="N° Doc (Boleta/Factura)"
+                                        className="w-1/2 bg-white border border-slate-300 rounded p-1 text-[11px] font-bold"
+                                      />
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={it.providerName || ""}
+                                      onChange={(e) => updateEditItemField(it.id, "providerName", e.target.value)}
+                                      placeholder="Nombre del Proveedor"
+                                      className="w-full bg-white border border-slate-300 rounded p-1 text-[11px] font-semibold text-primary"
+                                    />
                                     <input
                                       type="text"
                                       value={it.description || ""}
@@ -1351,7 +1412,8 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                               }`}>
                                 <td className="px-4 py-3.5 font-bold text-on-surface-variant font-mono">{it.date}</td>
                                 <td className="px-4 py-3.5">
-                                  <div className="font-extrabold text-primary">{it.docType}: {it.description || "Gasto declarado"}</div>
+                                  <div className="font-extrabold text-primary">{it.docType} {it.docNumber ? `N° ${it.docNumber}` : ""} - {it.description || "Gasto declarado"}</div>
+                                  <div className="text-[10px] text-gray-500 font-semibold mt-0.5">Proveedor: {it.providerName || "Sin especificar"}</div>
                                   {it.approved === false && (
                                     <span className="bg-red-100 text-red-700 text-[8px] font-black uppercase px-1.5 py-0.5 rounded mt-1 inline-block">
                                       ❌ Boleta Rechazada (No elegible para reembolso)
@@ -1789,97 +1851,125 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                   <Plus className="w-4 h-4 text-secondary shrink-0" /> Añadir Nueva Línea de Boleta
                 </p>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-6 gap-3 text-xs">
-                  
-                  {/* Item Date */}
-                  <div className="space-y-1">
-                    <span className="text-[9px] text-on-surface-variant uppercase font-bold">Fecha Gasto</span>
-                    <input 
-                      type="date" 
-                      value={itemDate}
-                      onChange={(e) => setItemDate(e.target.value)}
-                      className="w-full bg-white border border-outline-variant p-2 rounded outline-none" 
-                    />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                    {/* Item Date */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-on-surface-variant uppercase font-bold">Fecha Gasto</span>
+                      <input 
+                        type="date" 
+                        value={itemDate}
+                        onChange={(e) => setItemDate(e.target.value)}
+                        className="w-full bg-white border border-outline-variant p-2 rounded outline-none" 
+                      />
+                    </div>
+
+                    {/* Item Category */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-on-surface-variant uppercase font-bold">Categoría</span>
+                      <select 
+                        value={itemCategory}
+                        onChange={(e) => setItemCategory(e.target.value)}
+                        className="w-full bg-white border border-outline-variant p-2 rounded outline-none cursor-pointer"
+                      >
+                        {expenseCategories.map((ec) => (
+                          <option key={ec} value={ec}>{ec}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Doc Type */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-on-surface-variant uppercase font-bold">Tipo Doc.</span>
+                      <select 
+                        value={itemDocType}
+                        onChange={(e) => setItemDocType(e.target.value)}
+                        className="w-full bg-white border border-outline-variant p-2 rounded outline-none cursor-pointer"
+                      >
+                        {documentTypes.map((dt) => (
+                          <option key={dt} value={dt}>{dt}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* N° Boleta / Factura */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-on-surface-variant uppercase font-bold">N° Boleta / Factura</span>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 19284"
+                        value={itemDocNumber}
+                        onChange={(e) => setItemDocNumber(e.target.value)}
+                        className="w-full bg-white border border-outline-variant p-2 rounded outline-none font-bold" 
+                      />
+                    </div>
                   </div>
 
-                  {/* Item Category */}
-                  <div className="space-y-1">
-                    <span className="text-[9px] text-on-surface-variant uppercase font-bold">Categoría</span>
-                    <select 
-                      value={itemCategory}
-                      onChange={(e) => setItemCategory(e.target.value)}
-                      className="w-full bg-white border border-outline-variant p-2 rounded outline-none cursor-pointer"
-                    >
-                      {expenseCategories.map((ec) => (
-                        <option key={ec} value={ec}>{ec}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                    {/* Proveedor RUT */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-on-surface-variant uppercase font-bold">RUT Proveedor</span>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 76.541.220-3"
+                        value={itemRut}
+                        onChange={(e) => setItemRut(e.target.value)}
+                        className="w-full bg-white border border-outline-variant p-2 rounded outline-none font-mono" 
+                      />
+                    </div>
 
-                  {/* Doc Type */}
-                  <div className="space-y-1">
-                    <span className="text-[9px] text-on-surface-variant uppercase font-bold">Tipo Doc.</span>
-                    <select 
-                      value={itemDocType}
-                      onChange={(e) => setItemDocType(e.target.value)}
-                      className="w-full bg-white border border-outline-variant p-2 rounded outline-none cursor-pointer"
-                    >
-                      {documentTypes.map((dt) => (
-                        <option key={dt} value={dt}>{dt}</option>
-                      ))}
-                    </select>
-                  </div>
+                    {/* Nombre Proveedor */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-on-surface-variant uppercase font-bold">Nombre Proveedor</span>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Sodimac S.A."
+                        value={itemProviderName}
+                        onChange={(e) => setItemProviderName(e.target.value)}
+                        className="w-full bg-white border border-outline-variant p-2 rounded outline-none font-semibold text-primary" 
+                      />
+                    </div>
 
-                  {/* Proveedor RUT */}
-                  <div className="space-y-1">
-                    <span className="text-[9px] text-on-surface-variant uppercase font-bold">RUT Proveedor</span>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 76.541.220-3"
-                      value={itemRut}
-                      onChange={(e) => setItemRut(e.target.value)}
-                      className="w-full bg-white border border-outline-variant p-2 rounded outline-none font-mono" 
-                    />
-                  </div>
+                    {/* Item amount */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-on-surface-variant uppercase font-bold">Monto ($)</span>
+                      <input 
+                        type="number" 
+                        placeholder="0.00"
+                        value={itemAmount}
+                        onChange={(e) => setItemAmount(e.target.value)}
+                        className="w-full bg-white border border-outline-variant p-2 rounded outline-none font-bold" 
+                      />
+                    </div>
 
-                  {/* Item amount */}
-                  <div className="space-y-1">
-                    <span className="text-[9px] text-on-surface-variant uppercase font-bold">Monto ($)</span>
-                    <input 
-                      type="number" 
-                      placeholder="0.00"
-                      value={itemAmount}
-                      onChange={(e) => setItemAmount(e.target.value)}
-                      className="w-full bg-white border border-outline-variant p-2 rounded outline-none font-bold" 
-                    />
-                  </div>
-
-                  {/* Link with photo/comprobante dropdown */}
-                  <div className="space-y-1">
-                    <span className="text-[9px] text-[#1e73e8] uppercase font-black">🔗 Vincular Foto</span>
-                    <select 
-                      value={itemReceiptUrl}
-                      onChange={(e) => setItemReceiptUrl(e.target.value)}
-                      className="w-full bg-white border border-blue-200 focus:border-blue-500 p-2 rounded outline-none cursor-pointer text-blue-700 font-extrabold"
-                    >
-                      <option value="">-- Sin Foto --</option>
-                      {uploadedComprobantes.map((name) => (
-                        <option key={name} value={name}>{name}</option>
-                      ))}
-                    </select>
+                    {/* Link with photo/comprobante dropdown */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] text-[#1e73e8] uppercase font-black">🔗 Vincular Foto</span>
+                      <select 
+                        value={itemReceiptUrl}
+                        onChange={(e) => setItemReceiptUrl(e.target.value)}
+                        className="w-full bg-white border border-blue-200 focus:border-blue-500 p-2 rounded outline-none cursor-pointer text-blue-700 font-extrabold"
+                      >
+                        <option value="">-- Sin Foto --</option>
+                        {uploadedComprobantes.map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   {/* Expense line details Description */}
-                  <div className="col-span-1 sm:col-span-5 space-y-1">
-                    <span className="text-[9px] text-on-surface-variant uppercase font-bold">Descripción del Documento / Producto</span>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Compra de cebollas, tomates y ajíes para almuerzo campestre"
-                      value={itemDesc}
-                      onChange={(e) => setItemDesc(e.target.value)}
-                      className="w-full bg-white border border-outline-variant p-2 rounded outline-none" 
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-6 gap-3 text-xs">
+                    <div className="col-span-1 sm:col-span-5 space-y-1">
+                      <span className="text-[9px] text-on-surface-variant uppercase font-bold">Descripción del Documento / Producto</span>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Compra de cebollas, tomates y ajíes para almuerzo campestre"
+                        value={itemDesc}
+                        onChange={(e) => setItemDesc(e.target.value)}
+                        className="w-full bg-white border border-outline-variant p-2 rounded outline-none" 
+                      />
+                    </div>
 
                   <div className="col-span-1 flex items-end">
                     <button 
@@ -1893,6 +1983,7 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
 
                 </div>
               </div>
+            </div>
 
               {/* Draft table review rendering list */}
               <div className="border border-outline-variant/50 rounded-xl overflow-x-auto mt-4 text-xs font-sans">
@@ -1911,7 +2002,8 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                       <tr key={item.id} className="hover:bg-surface-container-low/30">
                         <td className="px-4 py-3 font-semibold text-on-surface-variant">{item.date}</td>
                         <td className="px-4 py-3">
-                          <div className="font-extrabold text-primary">{item.docType}: {item.category}</div>
+                          <div className="font-extrabold text-primary">{item.docType} {item.docNumber ? `N° ${item.docNumber}` : ""} - {item.category}</div>
+                          <div className="text-[10px] text-gray-500 font-semibold mt-0.5">Proveedor: {item.providerName || "Sin especificar"}</div>
                           <span className="text-[10px] text-on-surface-variant block mt-0.5">{item.description}</span>
                           {item.receiptUrl && (
                             <span className="inline-flex items-center gap-1 mt-1 text-[9px] bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded border border-blue-100">

@@ -136,6 +136,8 @@ export interface ExpenseItem {
   date: string;
   category: string;
   docType: string;
+  docNumber?: string;
+  providerName?: string;
   rut: string;
   amount: number;
   receiptUploaded: boolean;

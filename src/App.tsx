@@ -1368,6 +1368,7 @@ export default function App() {
               expenseCategories={expenseCategories}
               documentTypes={documentTypes}
               boardVotos={boardVotos}
+              googleDriveConfig={googleDriveConfig}
             />
           )}
 
@@ -1386,6 +1387,7 @@ export default function App() {
               expenseCategories={expenseCategories}
               documentTypes={documentTypes}
               boardVotos={boardVotos}
+              googleDriveConfig={googleDriveConfig}
             />
           )}
 
@@ -1404,6 +1406,7 @@ export default function App() {
               expenseCategories={expenseCategories}
               documentTypes={documentTypes}
               boardVotos={boardVotos}
+              googleDriveConfig={googleDriveConfig}
             />
           )}
 
