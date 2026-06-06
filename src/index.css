@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-primary: #1552a6; /* ACMS Brand Royal Blue */
+  --color-primary-container: #eef4fc;
+  --color-secondary: #10b981; /* Emerald for CLP checks and balances */
+  --color-secondary-container: #e2f6ec;
+  --color-tertiary: #ea580c; /* Orange warn flags */
+  --color-tertiary-container: #ffedd5;
+  --color-error: #ef4444;
+  --color-error-container: #fee2e2;
+  --color-background: #eef1f6; /* ACMS Soft Blueish-Gray Canvas Background */
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f8fafd;
+  --color-surface-container: #ffffff;
+  --color-surface-container-high: #eef1f6;
+  --color-outline: #6b7280;
+  --color-outline-variant: #e2e8f0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #eef1f6;
+  color: #1e293b;
+}
+
+/* Custom styles for professional tables */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c3c6d0;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8c8ff;
+}
+

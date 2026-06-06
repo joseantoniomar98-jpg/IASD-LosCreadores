@@ -1,0 +1,341 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User accounts and permissions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "roles": { "type": "array" },
+        "departments": { "type": "array" },
+        "active": { "type": "boolean" },
+        "avatarLetter": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "miembroDeJunta": { "type": "boolean" }
+      },
+      "required": ["id", "name", "email", "roles", "departments", "active"]
+    },
+    "Cargo": {
+      "title": "Cargo",
+      "description": "Roles and permissions configurations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "permissions": { "type": "array" }
+      },
+      "required": ["id", "name", "description", "permissions"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "Church departments budget and info",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "category": { "type": "string" },
+        "director": { "type": "string" },
+        "directorImage": { "type": "string" },
+        "tesorero": { "type": "string" },
+        "budgetAllocated": { "type": "number" },
+        "budgetUsed": { "type": "number" },
+        "percentageUsed": { "type": "number" },
+        "assignedPercentage": { "type": "number" },
+        "initialBudget": { "type": "number" }
+      },
+      "required": ["id", "name", "code", "category", "director", "tesorero", "budgetAllocated", "budgetUsed"]
+    },
+    "Transfer": {
+      "title": "Transfer",
+      "description": "Budget transfer between departments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "origin": { "type": "string" },
+        "originSub": { "type": "string" },
+        "destination": { "type": "string" },
+        "destinationSub": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string" },
+        "reason": { "type": "string" },
+        "acmsStatus": { "type": "string" }
+      },
+      "required": ["id", "date", "origin", "originSub", "destination", "destinationSub", "amount", "status", "reason"]
+    },
+    "FundRequest": {
+      "title": "FundRequest",
+      "description": "Advances or fund requests from department directors",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "department": { "type": "string" },
+        "applicant": { "type": "string" },
+        "applicantAvatar": { "type": "string" },
+        "amount": { "type": "number" },
+        "boardVote": { "type": "string" },
+        "description": { "type": "string" },
+        "expectedDate": { "type": "string" },
+        "recipientType": { "type": "string" },
+        "recipientName": { "type": "string" },
+        "recipientRut": { "type": "string" },
+        "recipientEmail": { "type": "string" },
+        "bank": { "type": "string" },
+        "accountType": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "status": { "type": "string" },
+        "obs": { "type": "string" },
+        "isException": { "type": "boolean" },
+        "cerrado": { "type": "boolean" }
+      },
+      "required": ["id", "department", "applicant", "amount", "boardVote", "description", "expectedDate", "recipientType", "recipientName", "recipientRut", "bank", "accountType", "accountNumber", "status"]
+    },
+    "ExpenseRendition": {
+      "title": "ExpenseRendition",
+      "description": "Expense renditions with item bills",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "folio": { "type": "string" },
+        "dateSent": { "type": "string" },
+        "applicant": { "type": "string" },
+        "department": { "type": "string" },
+        "project": { "type": "string" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "observations": { "type": "string" },
+        "receiptImages": { "type": "array" },
+        "pagada": { "type": "boolean" },
+        "asociadaFondoId": { "type": "string" },
+        "votoAsociadoId": { "type": "string" },
+        "comprobantesDriveUrl": { "type": "string" },
+        "acmsStatus": { "type": "string" },
+        "devolucionExcedenteUrl": { "type": "string" },
+        "hasTransferDetails": { "type": "boolean" },
+        "recipientType": { "type": "string" },
+        "recipientName": { "type": "string" },
+        "recipientRut": { "type": "string" },
+        "recipientEmail": { "type": "string" },
+        "bank": { "type": "string" },
+        "accountType": { "type": "string" },
+        "accountNumber": { "type": "string" }
+      },
+      "required": ["id", "folio", "dateSent", "applicant", "department", "project", "items", "totalAmount", "status"]
+    },
+    "Meeting": {
+      "title": "Meeting",
+      "description": "Board or group meetings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "title": { "type": "string" },
+        "time": { "type": "string" },
+        "duration": { "type": "string" },
+        "location": { "type": "string" },
+        "department": { "type": "string" },
+        "organizer": { "type": "string" },
+        "participants": { "type": "array" },
+        "description": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "date", "title", "time", "duration", "location", "department", "status"]
+    },
+    "SpaceResource": {
+      "title": "SpaceResource",
+      "description": "Church space resources and availability",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "capacity": { "type": "number" },
+        "available": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["id", "name", "capacity", "available", "imageUrl"]
+    },
+    "BankAccount": {
+      "title": "BankAccount",
+      "description": "Church bank accounts balances",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "balance": { "type": "number" }
+      },
+      "required": ["id", "name", "balance"]
+    },
+    "BankTransaction": {
+      "title": "BankTransaction",
+      "description": "Church bank accounts transaction logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "type": { "type": "string" },
+        "bankId": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "date", "type", "bankId", "amount", "description", "category"]
+    },
+    "BoardActa": {
+      "title": "BoardActa",
+      "description": "Church board official acts documents",
+      "type": "object",
+      "properties": {
+        "voto": { "type": "string" },
+        "fecha": { "type": "string" },
+        "tipo": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "firmadoPor": { "type": "string" },
+        "peso": { "type": "string" },
+        "year": { "type": "number" },
+        "month": { "type": "string" },
+        "dateVal": { "type": "string" },
+        "linkDrive": { "type": "string" },
+        "titulo": { "type": "string" },
+        "lugar": { "type": "string" },
+        "participantes": { "type": "string" },
+        "oracionInicio": { "type": "string" },
+        "oracionFin": { "type": "string" }
+      },
+      "required": ["voto", "fecha", "tipo", "descripcion", "firmadoPor", "peso", "year", "month", "dateVal"]
+    },
+    "TesoreriaBalance": {
+      "title": "TesoreriaBalance",
+      "description": "Tesoreria monthly balance documents",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "voto_id": { "type": "string" },
+        "fecha": { "type": "string" },
+        "periodo": { "type": "string" },
+        "linkDrive": { "type": "string" },
+        "creadoPor": { "type": "string" },
+        "peso": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "year": { "type": "number" }
+      },
+      "required": ["id", "fecha", "periodo", "linkDrive", "creadoPor", "peso", "descripcion", "year"]
+    },
+    "BoardVoto": {
+      "title": "BoardVoto",
+      "description": "Votes proposed/approved at board",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "departamento": { "type": "string" },
+        "solicitante": { "type": "string" },
+        "solicitanteEmail": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "linkDriveDoc": { "type": "string" },
+        "fechaEnvio": { "type": "string" },
+        "estado": { "type": "string" },
+        "observaciones": { "type": "string" }
+      },
+      "required": ["id", "departamento", "solicitante", "solicitanteEmail", "descripcion", "fechaEnvio", "estado"]
+    },
+    "SystemNotification": {
+      "title": "SystemNotification",
+      "description": "Notifications or alerts for users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "date": { "type": "string" },
+        "read": { "type": "boolean" },
+        "category": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "emailSent": { "type": "boolean" }
+      },
+      "required": ["id", "title", "message", "date", "read", "category"]
+    },
+    "ResourceFile": {
+      "title": "ResourceFile",
+      "description": "Shared church resource templates and manuals",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "type": { "type": "string" },
+        "size": { "type": "string" },
+        "date": { "type": "string" },
+        "downloads": { "type": "number" }
+      },
+      "required": ["id", "name", "category", "type", "size", "date", "downloads"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "User profile collection"
+    },
+    "cargos": {
+      "schema": "Cargo",
+      "description": "Cargos/Church offices permissions configuration"
+    },
+    "departments": {
+      "schema": "Department",
+      "description": "Church departments collection and budgets"
+    },
+    "transfers": {
+      "schema": "Transfer",
+      "description": "Budget Transfers between departments"
+    },
+    "fundRequests": {
+      "schema": "FundRequest",
+      "description": "Fund advances requested by directors"
+    },
+    "renditions": {
+      "schema": "ExpenseRendition",
+      "description": "Church expense renditions and digital receipts"
+    },
+    "meetings": {
+      "schema": "Meeting",
+      "description": "Council / Junta meetings scheduled"
+    },
+    "spaces": {
+      "schema": "SpaceResource",
+      "description": "Available spaces to reserve"
+    },
+    "bankAccounts": {
+      "schema": "BankAccount",
+      "description": "Financial bank accounts of the church"
+    },
+    "bankTransactions": {
+      "schema": "BankTransaction",
+      "description": "Full transactions ledgers of bank accounts"
+    },
+    "boardActas": {
+      "schema": "BoardActa",
+      "description": "Official Meeting Minutes (Actas of Church Board)"
+    },
+    "tesoreriaBalances": {
+      "schema": "TesoreriaBalance",
+      "description": "Socio-economic balances uploaded to Drive reference"
+    },
+    "boardVotos": {
+      "schema": "BoardVoto",
+      "description": "Recorded platform votes of the church members"
+    },
+    "notifications": {
+      "schema": "SystemNotification",
+      "description": "User notification/activity log history"
+    },
+    "resources": {
+      "schema": "ResourceFile",
+      "description": "Official templates, logos and manuals list"
+    }
+  }
+}

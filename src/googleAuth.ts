@@ -1,0 +1,203 @@
+import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from './firebase';
+
+const provider = new GoogleAuthProvider();
+// Add granular scopes required for sending and reading Gmail emails
+provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+provider.addScope('https://www.googleapis.com/auth/gmail.send');
+
+let isSigningIn = false;
+let cachedAccessToken: string | null = null;
+let googleUserProfile: { name: string; email: string; picture?: string } | null = null;
+
+// Initialize auth listener
+export const initGoogleAuth = (
+  onAuthSuccess?: (user: User, token: string) => void,
+  onAuthFailure?: () => void
+) => {
+  return onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      if (cachedAccessToken) {
+        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
+      } else if (!isSigningIn) {
+        cachedAccessToken = null;
+        if (onAuthFailure) onAuthFailure();
+      }
+    } else {
+      cachedAccessToken = null;
+      googleUserProfile = null;
+      if (onAuthFailure) onAuthFailure();
+    }
+  });
+};
+
+// Sign in via Google popup and obtain access token
+export const signInWithGoogle = async (): Promise<{ user: User; accessToken: string } | null> => {
+  try {
+    isSigningIn = true;
+    const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (!credential?.accessToken) {
+      throw new Error('No se pudo obtener el token de acceso de Google OAuth.');
+    }
+    cachedAccessToken = credential.accessToken;
+    
+    // Fetch google profile details
+    try {
+      const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${cachedAccessToken}` }
+      });
+      if (profileRes.ok) {
+        googleUserProfile = await profileRes.json();
+      }
+    } catch (e) {
+      console.error('Error fetching Google User Info:', e);
+    }
+
+    return { user: result.user, accessToken: cachedAccessToken };
+  } catch (error) {
+    console.error('Error en login de Google:', error);
+    throw error;
+  } finally {
+    isSigningIn = false;
+  }
+};
+
+// Retrieve cached token
+export const getAccessToken = (): string | null => {
+  return cachedAccessToken;
+};
+
+// Retrieve cached Google Profile info
+export const getGoogleUserProfile = () => {
+  return googleUserProfile;
+};
+
+// Disconnect/Logout from Google Session
+export const logoutGoogle = async () => {
+  await auth.signOut();
+  cachedAccessToken = null;
+  googleUserProfile = null;
+};
+
+// --- GMAIL API FUNCTIONS ---
+
+/**
+ * Encodes subject and body in RFC 2822 / MIME base64url format for Gmail
+ */
+const makeMime = (to: string, subject: string, body: string) => {
+  const utf8Subject = `=?utf-8?B?${btoa(encodeURIComponent(subject).replace(/%([0-9A-F]{2})/g, (_, p1) => {
+    return String.fromCharCode(parseInt(p1, 16));
+  }))}?=`;
+  
+  const mimeParts = [
+    `To: ${to}`,
+    'Content-Type: text/html; charset=utf-8',
+    'MIME-Version: 1.0',
+    `Subject: ${utf8Subject}`,
+    '',
+    body
+  ];
+  
+  const str = mimeParts.join('\r\n');
+  const base64 = btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => {
+    return String.fromCharCode(parseInt(p1, 16));
+  }));
+  
+  return base64
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+};
+
+/**
+ * Sends a real email using Gmail API with the connected account
+ */
+export const sendGmailEmail = async (to: string, subject: string, htmlBody: string): Promise<boolean> => {
+  const token = getAccessToken();
+  if (!token) {
+    console.warn('Conexión con Gmail ausente: se requiere autenticación de Google.');
+    return false;
+  }
+
+  try {
+    const rawMessage = makeMime(to, subject, htmlBody);
+    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ raw: rawMessage })
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Gmail Send Error (${res.status}): ${errorText}`);
+    }
+
+    console.log(`Email enviado con éxito por Gmail a ${to}`);
+    return true;
+  } catch (error) {
+    console.error('Error enviando con la API de Gmail:', error);
+    return false;
+  }
+};
+
+/**
+ * Retrieves the last 10 messages from the authenticated user's Gmail index
+ */
+export interface GmailMessage {
+  id: string;
+  snippet: string;
+  subject: string;
+  from: string;
+  date: string;
+}
+
+export const fetchRecentEmails = async (): Promise<GmailMessage[]> => {
+  const token = getAccessToken();
+  if (!token) return [];
+
+  try {
+    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    if (!data.messages) return [];
+
+    const detailedMessages: GmailMessage[] = await Promise.all(
+      data.messages.map(async (msg: { id: string }) => {
+        try {
+          const detailRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!detailRes.ok) return null;
+          const detailData = await detailRes.json();
+          
+          const subjectHeader = detailData.payload.headers.find((h: any) => h.name.toLowerCase() === 'subject');
+          const fromHeader = detailData.payload.headers.find((h: any) => h.name.toLowerCase() === 'from');
+          const dateHeader = detailData.payload.headers.find((h: any) => h.name.toLowerCase() === 'date');
+
+          return {
+            id: msg.id,
+            snippet: detailData.snippet || '',
+            subject: subjectHeader ? subjectHeader.value : '(Sin Asunto)',
+            from: fromHeader ? fromHeader.value : 'Desconocido',
+            date: dateHeader ? dateHeader.value : ''
+          };
+        } catch (e) {
+          return null;
+        }
+      })
+    ).then(arr => arr.filter((m): m is GmailMessage => m !== null));
+
+    return detailedMessages;
+  } catch (error) {
+    console.error('Error fetching recent Gmail emails:', error);
+    return [];
+  }
+};
