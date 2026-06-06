@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Department, Cargo, UserRole } from "../types";
+import { collection, doc, setDoc, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
 import { 
   Users, Search, Plus, Trash2, Edit3, ShieldAlert, Check, X, ShieldCheck, 
   Briefcase, Shield, Key, FileText, Calendar, DollarSign, RefreshCw, Layers,
@@ -84,6 +86,27 @@ export const UsuariosView: React.FC<UsuariosProps> = ({
   categories = [],
   categoryColors = {}
 }) => {
+  const [localUsers, setLocalUsers] = useState<User[]>(users);
+
+  useEffect(() => {
+    setLocalUsers(users);
+  }, [users]);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
+      const items: User[] = [];
+      snapshot.forEach((doc) => {
+        items.push(doc.data() as User);
+      });
+      if (items.length > 0) {
+        setLocalUsers(items);
+      }
+    }, (error) => {
+      console.error("Error subscribing to users in UsuariosView:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
@@ -134,7 +157,7 @@ export const UsuariosView: React.FC<UsuariosProps> = ({
 
 
   // --- FILTERED DATA FOR BOTH MODES ---
-  const filteredUsers = users.filter(u => 
+  const filteredUsers = localUsers.filter(u => 
     u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.roles.some(r => r.toLowerCase().includes(searchTerm.toLowerCase())) ||

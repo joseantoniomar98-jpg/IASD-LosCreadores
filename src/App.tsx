@@ -4,6 +4,8 @@
  */
 
 import React, { useState, useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase";
 import { Sidebar } from "./components/Sidebar";
 import { DashboardView } from "./components/DashboardView";
 import { TransferenciasView } from "./components/TransferenciasView";
@@ -45,7 +47,9 @@ import {
 
 export default function App() {
   // Authentication states - Starts at Login screen for real production user accesses.
-  const [isLogged, setIsLogged] = useState(false);
+  const [isLogged, setIsLogged] = useState<boolean>(() => {
+    return localStorage.getItem("iasd_isLogged") === "true";
+  });
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const savedUser = localStorage.getItem("iasd_currentUser");
     if (savedUser) {
@@ -75,6 +79,20 @@ export default function App() {
       localStorage.removeItem("iasd_currentUser");
     }
   }, [isLogged, currentUser]);
+
+  // Listen for Firebase Auth changes to preserve Google login sessions
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser && firebaseUser.email) {
+        const matched = users.find(u => u.email.toLowerCase() === firebaseUser.email?.toLowerCase());
+        if (matched) {
+          setIsLogged(true);
+          setCurrentUser(matched);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [users]);
 
   // Keep currentUser synced with database updates to the users list
   useEffect(() => {
