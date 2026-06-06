@@ -22,6 +22,7 @@ interface SolicitudesProps {
   mode?: "resumen" | "gestion" | "nueva";
   cargos?: Cargo[];
   bankList?: string[];
+  onSuccessRedirect?: () => void;
 }
 
 export const SolicitudesView: React.FC<SolicitudesProps> = ({
@@ -43,7 +44,8 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
     "Banco Scotiabank",
     "Banco Security",
     "Banco BICE"
-  ]
+  ],
+  onSuccessRedirect
 }) => {
   // Determine if the user is a global administrative officer/auditor
   const isGlobalManager = (currentUser?.roles.some(r => 
@@ -496,7 +498,7 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
                     </div>
 
                     {/* Quick approvals panel buttons */}
-                    {activeReq.status === "Pendiente" && mode !== "resumen" ? (
+                    {activeReq.status === "Pendiente" && mode === "gestion" ? (
                       <div className="space-y-3">
                         <button 
                           onClick={() => handleUpdateStatus("Aprobada")}
@@ -533,7 +535,7 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
                         }`}>
                           Esta solicitud ya fue resuelta con estado: {activeReq.status.toUpperCase()}
                         </div>
-                        {activeReq.status === "Aprobada" && mode !== "resumen" && onToggleFundRequestClosed && (
+                        {activeReq.status === "Aprobada" && mode === "gestion" && onToggleFundRequestClosed && (
                           <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-150 text-center select-none">
                             <span className="text-[10px] uppercase font-black tracking-wider text-emerald-800 block mb-1">Cierre Administrativo del Fondo</span>
                             <p className="text-[10px] text-emerald-700/80 mb-2.5 leading-relaxed">
@@ -907,7 +909,11 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
               <button 
                 onClick={() => {
                   setShowCreatedModal(false);
-                  setSubTab("bandeja"); // switch to review list to see it
+                  if (onSuccessRedirect) {
+                    onSuccessRedirect();
+                  } else {
+                    setSubTab("bandeja"); // switch to review list to see it
+                  }
                 }}
                 className="w-full py-3 bg-primary text-white rounded-xl font-bold text-xs hover:bg-primary-container transition-all shadow select-none"
               >

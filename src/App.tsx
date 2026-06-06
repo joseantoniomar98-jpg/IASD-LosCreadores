@@ -541,7 +541,48 @@ export default function App() {
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
 
   const userNotifications = React.useMemo(() => {
-    return notifications.filter(n => !n.userEmail || n.userEmail.toLowerCase() === currentUser?.email.toLowerCase());
+    if (!currentUser) return [];
+
+    const isTesorero = currentUser.roles.some(r => r.toLowerCase().includes("tesorero"));
+    const isSecretario = currentUser.roles.some(r => r.toLowerCase().includes("secretar"));
+    const isPastorOrJunta = currentUser.roles.some(r => 
+      r.toLowerCase().includes("pastor") || 
+      r.toLowerCase().includes("anciano")
+    ) || currentUser.miembroDeJunta;
+
+    return notifications.filter(n => {
+      // 1. Direct recipient
+      if (n.userEmail && n.userEmail.toLowerCase() === currentUser.email.toLowerCase()) {
+        return true;
+      }
+
+      // 2. Treasurer gets all fund requests and renditions
+      if (isTesorero && (n.category === "solicitud" || n.category === "rendicion")) {
+        return true;
+      }
+
+      // 3. Secretary gets calendar/event coordination notifications
+      if (isSecretario && n.category === "calendario") {
+        return true;
+      }
+
+      // 4. Department match: if the message or title contains the name of any department the user is in
+      if (currentUser.departments && currentUser.departments.length > 0) {
+        const hasDeptMatch = currentUser.departments.some(d => 
+          n.message.toLowerCase().includes(d.toLowerCase()) || 
+          n.title.toLowerCase().includes(d.toLowerCase())
+        );
+        if (hasDeptMatch) return true;
+      }
+
+      // 5. General system notification with no specific target user, only shown to general board members/admin
+      if (!n.userEmail) {
+        if (n.category === "sistema") return true; 
+        if (n.category === "calendario" && isPastorOrJunta) return true;
+      }
+
+      return false;
+    });
   }, [notifications, currentUser]);
 
   const handleAddNotification = (title: string, message: string, category: "solicitud" | "rendicion" | "calendario" | "sistema", userEmail?: string) => {
@@ -1293,6 +1334,7 @@ export default function App() {
               mode="nueva"
               cargos={cargos}
               bankList={bankList}
+              onSuccessRedirect={() => setActiveTab(Tab.TES_RESUMEN_FONDOS)}
             />
           )}
 

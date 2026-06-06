@@ -38,13 +38,35 @@ export function subscribeCollection<T>(
 }
 
 /**
+ * Deeply sanitizes an object to remove any keys with 'undefined' values,
+ * which Firestore does not support.
+ */
+function cleanUndefined(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefined(item));
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj)) {
+      if (obj[key] !== undefined) {
+        cleaned[key] = cleanUndefined(obj[key]);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
+/**
  * Sets/Upserts a document to Firestore
  */
 export async function setFirestoreDoc(collectionName: string, docId: string, data: any): Promise<void> {
   const path = `${collectionName}/${docId}`;
   try {
     const docRef = doc(db, collectionName, docId);
-    await setDoc(docRef, data, { merge: true });
+    const sanitized = cleanUndefined(data);
+    await setDoc(docRef, sanitized, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -76,7 +98,8 @@ export async function seedCollectionIfEmpty(collectionName: string, seedData: an
         // Find a suitable ID or generate one
         const docId = item.id || item.voto || item.fecha || `${collectionName}-${Math.random().toString(36).substr(2, 9)}`;
         const docRef = doc(db, collectionName, docId);
-        await setDoc(docRef, item);
+        const sanitized = cleanUndefined(item);
+        await setDoc(docRef, sanitized);
       }
       return seedData;
     } else {
