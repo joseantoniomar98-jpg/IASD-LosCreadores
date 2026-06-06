@@ -64,6 +64,7 @@ export default function App() {
   // Core global data collections as React states to make the entire app fully functional
   const [activeTab, setActiveTab] = useState<Tab>(Tab.DASHBOARD);
   const [users, setUsers] = useState<User[]>(USERS_SEED);
+  const [usersLoadedFromDB, setUsersLoadedFromDB] = useState(false);
 
   // Persist session changes in localStorage automatically whenever auth state shifts
   useEffect(() => {
@@ -77,7 +78,7 @@ export default function App() {
 
   // Keep currentUser synced with database updates to the users list
   useEffect(() => {
-    if (isLogged && currentUser) {
+    if (isLogged && currentUser && usersLoadedFromDB) {
       const dbUser = users.find(u => u.id === currentUser.id);
       if (dbUser) {
         // Compare values to prevent infinite render loops
@@ -89,7 +90,7 @@ export default function App() {
         }
       }
     }
-  }, [users, isLogged, currentUser]);
+  }, [users, isLogged, currentUser, usersLoadedFromDB]);
 
   const [cargos, setCargos] = useState<Cargo[]>(CARGOS_SEED);
   const [rawDepartments, setRawDepartments] = useState<Department[]>(DEPARTMENTS_SEED);
@@ -375,7 +376,10 @@ export default function App() {
         ]);
 
         unsubscribers.push(subscribeCollection<User>("users", (items) => {
-          if (items.length > 0) setUsers(items);
+          if (items.length > 0) {
+            setUsers(items);
+            setUsersLoadedFromDB(true);
+          }
         }));
         unsubscribers.push(subscribeCollection<Cargo>("cargos", (items) => {
           if (items.length > 0) setCargos(items);

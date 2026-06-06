@@ -98,9 +98,18 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
     setActiveTab(mode === "nueva" ? "crear" : "bandeja");
   }, [mode]);
 
+  // Filter state for status tabs
+  const [filterState, setFilterState] = useState<"todos" | "Pendiente" | "Aprobada" | "Observada" | "Rechazada">("todos");
+
+  // Dynamic filtered renditions list using useMemo
+  const filteredRenditions = React.useMemo(() => {
+    if (filterState === "todos") return matchedRenditions;
+    return matchedRenditions.filter(r => r.status === filterState);
+  }, [matchedRenditions, filterState]);
+
   // Selected audit overview
   const [selectedRendId, setSelectedRendId] = useState<string>("");
-  const activeRend = matchedRenditions.find(r => r.id === selectedRendId) || matchedRenditions[0];
+  const activeRend = filteredRenditions.find(r => r.id === selectedRendId) || filteredRenditions[0];
 
   // --- TREASURER EDIT MODE STATES ---
   const [isEditingRend, setIsEditingRend] = useState(false);
@@ -599,52 +608,76 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
             {/* Left side list columns: lists drafts & submitted renditions */}
             <div className="lg:col-span-4 space-y-4">
               <div className="bg-white rounded-2xl border border-outline-variant/60 shadow-sm p-5 select-none">
-                <h4 className="text-xs font-black text-primary tracking-widest uppercase mb-4">Expedientes Recibidos</h4>
+                <h4 className="text-xs font-black text-primary tracking-widest uppercase mb-3">Expedientes Recibidos</h4>
                 
-                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
-                  {matchedRenditions.map((rend) => (
-                    <div 
-                      key={rend.id}
-                      onClick={() => setSelectedRendId(rend.id)}
-                      className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
-                        selectedRendId === rend.id 
-                          ? "bg-primary-container/[0.04] border-primary shadow-sm font-semibold" 
-                          : "bg-surface-container-low hover:bg-surface-container-high border-outline-variant/40"
+                {/* Table filtering */}
+                <div className="flex flex-wrap items-center gap-1 bg-slate-100 rounded-xl p-1 mb-4 border border-outline-variant/20">
+                  {["Todos", "Pendiente", "Aprobada", "Observada", "Rechazada"].map((st) => (
+                    <button 
+                      key={st}
+                      type="button"
+                      onClick={() => setFilterState(st === "Todos" ? "todos" : st as any)}
+                      className={`flex-1 min-w-[50px] text-center px-1.5 py-1 font-bold text-[9px] uppercase tracking-wider rounded-lg transition-all ${
+                        filterState.toLowerCase() === (st === "Todos" ? "todos" : st).toLowerCase()
+                          ? "bg-white text-slate-900 shadow-sm font-black border border-slate-200" 
+                          : "text-slate-500 hover:text-slate-900"
                       }`}
                     >
-                      <div className="flex justify-between items-start">
-                        <span className="text-xs font-black text-primary">{rend.folio}</span>
-                        <div className="flex flex-col items-end gap-1 select-none">
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
-                            rend.status === "Aprobada" 
-                              ? "bg-tertiary-fixed text-on-tertiary-fixed" 
-                              : rend.status === "Observada" 
-                              ? "bg-error-container text-error" 
-                              : "bg-secondary-fixed text-primary"
-                          }`}>
-                            {rend.status}
-                          </span>
-                          <div className="flex flex-wrap gap-1 md:justify-end">
-                            {rend.pagada && (
-                              <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[7px] px-1.5 py-0.2 rounded font-black uppercase tracking-wider scale-95 origin-right">
-                                Paid
-                              </span>
-                            )}
-                            {rend.acmsStatus === "Ingresado" && (
-                              <span className="bg-purple-100 text-purple-800 border border-purple-200 text-[7px] px-1.5 py-0.2 rounded font-black uppercase tracking-wider scale-95 origin-right">
-                                ACMS
-                              </span>
-                            )}
+                      {st === "Aprobada" ? "Apro" : st === "Pendiente" ? "Pend" : st === "Observada" ? "Obs" : st === "Rechazada" ? "Rech" : st}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
+                  {filteredRenditions.length === 0 ? (
+                    <div className="text-center py-8 px-4 text-on-surface-variant font-medium text-xs bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      No hay expedientes con este estado.
+                    </div>
+                  ) : (
+                    filteredRenditions.map((rend) => (
+                      <div 
+                        key={rend.id}
+                        onClick={() => setSelectedRendId(rend.id)}
+                        className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
+                          selectedRendId === rend.id 
+                            ? "bg-primary-container/[0.04] border-primary shadow-sm font-semibold" 
+                            : "bg-surface-container-low hover:bg-surface-container-high border-outline-variant/40"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-xs font-black text-primary">{rend.folio}</span>
+                          <div className="flex flex-col items-end gap-1 select-none">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                              rend.status === "Aprobada" 
+                                ? "bg-tertiary-fixed text-on-tertiary-fixed" 
+                                : rend.status === "Observada" 
+                                ? "bg-error-container text-error" 
+                                : "bg-secondary-fixed text-primary"
+                            }`}>
+                              {rend.status}
+                            </span>
+                            <div className="flex flex-wrap gap-1 md:justify-end">
+                              {rend.pagada && (
+                                <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[7px] px-1.5 py-0.2 rounded font-black uppercase tracking-wider scale-95 origin-right">
+                                  Paid
+                                </span>
+                              )}
+                              {rend.acmsStatus === "Ingresado" && (
+                                <span className="bg-purple-100 text-purple-800 border border-purple-200 text-[7px] px-1.5 py-0.2 rounded font-black uppercase tracking-wider scale-95 origin-right">
+                                  ACMS
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        <p className="text-xs font-extrabold text-primary truncate mt-1.5">{rend.project}</p>
+                        <div className="flex justify-between items-center text-[10px] text-on-surface-variant mt-2">
+                          <span>{rend.department}</span>
+                          <span className="font-mono font-black">${rend.totalAmount.toLocaleString("es-CL")}</span>
+                        </div>
                       </div>
-                      <p className="text-xs font-extrabold text-primary truncate mt-1.5">{rend.project}</p>
-                      <div className="flex justify-between items-center text-[10px] text-on-surface-variant mt-2">
-                        <span>{rend.department}</span>
-                        <span className="font-mono font-black">${rend.totalAmount.toLocaleString("es-CL")}</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 

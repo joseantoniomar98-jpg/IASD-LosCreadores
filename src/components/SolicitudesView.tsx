@@ -104,8 +104,17 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
   const currentDeptAllocatedReal = selectedDept ? selectedDept.budgetAllocated : 1;
   const availableBudgetReal = selectedDept ? (selectedDept.budgetAllocated - selectedDept.budgetUsed) : 0;
 
+  // Filter state for status tabs
+  const [filterState, setFilterState] = useState<"todos" | "Pendiente" | "Aprobada" | "Observada" | "Rechazada">("todos");
+
+  // Dynamic filtered fund requests of matching departments
+  const filteredRequests = React.useMemo(() => {
+    if (filterState === "todos") return matchedRequests;
+    return matchedRequests.filter(r => r.status === filterState);
+  }, [matchedRequests, filterState]);
+
   // Selected request on backend
-  const activeReq = matchedRequests.find(r => r.id === selectedReqId) || matchedRequests[0];
+  const activeReq = filteredRequests.find(r => r.id === selectedReqId) || filteredRequests[0];
 
   // Sync state if currentUser changes
   React.useEffect(() => {
@@ -283,10 +292,28 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               
               {/* Left Column Table */}
-              <div className="lg:col-span-7 bg-white rounded-2xl border border-outline-variant/60 shadow-sm overflow-hidden flex flex-col justify-between">
+              <div className="lg:col-span-12 xl:col-span-7 bg-white rounded-2xl border border-outline-variant/60 shadow-sm overflow-hidden flex flex-col justify-between">
                 <div>
-                  <div className="p-5 border-b border-outline-variant/35 bg-surface-container-low/20">
+                  <div className="p-5 border-b border-outline-variant/35 bg-surface-container-low/20 flex flex-col md:flex-row justify-between md:items-center gap-4">
                     <h3 className="text-xs font-extrabold text-primary uppercase tracking-wider">Solicitudes en Espera de Veredicto</h3>
+                    
+                    {/* Status filter toggle */}
+                    <div className="flex flex-wrap items-center gap-1 bg-slate-150/80 rounded-xl p-1 border border-outline-variant/20 select-none">
+                      {["Todos", "Pendiente", "Aprobada", "Observada", "Rechazada"].map((st) => (
+                        <button 
+                          key={st}
+                          type="button"
+                          onClick={() => setFilterState(st === "Todos" ? "todos" : st as any)}
+                          className={`px-2.5 py-1 font-bold text-[9px] uppercase tracking-wider rounded-lg transition-all ${
+                            filterState.toLowerCase() === (st === "Todos" ? "todos" : st).toLowerCase()
+                              ? "bg-white text-slate-900 shadow-sm font-black border border-slate-200" 
+                              : "text-slate-500 hover:text-slate-900"
+                          }`}
+                        >
+                          {st === "Aprobada" ? "Apro" : st === "Pendiente" ? "Pend" : st === "Observada" ? "Obs" : st === "Rechazada" ? "Rech" : st}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left font-sans">
@@ -299,58 +326,66 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-outline-variant/25 text-xs">
-                        {matchedRequests.map((req) => (
-                          <tr 
-                            key={req.id}
-                            onClick={() => setSelectedReqId(req.id)}
-                            className={`cursor-pointer transition-colors ${
-                              selectedReqId === req.id 
-                                ? "bg-secondary-fixed/30 border-l-4 border-l-secondary font-bold" 
-                                : "hover:bg-surface-container-low/40"
-                            }`}
-                          >
-                            <td className="px-5 py-4">
-                              <div className="flex flex-col text-left">
-                                <span className="font-extrabold text-primary flex items-center gap-1.5 flex-wrap">
-                                  {req.department}
-                                  {req.isException && (
-                                    <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0">
-                                      Excepción
-                                    </span>
-                                  )}
-                                  {req.cerrado && (
-                                    <span className="bg-emerald-100 text-emerald-950 border border-emerald-300 text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0">
-                                      Cerrado
-                                    </span>
-                                  )}
-                                </span>
-                                <span className="text-[10px] text-on-surface-variant truncate max-w-[200px] mt-0.5">{req.description}</span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-4 font-semibold text-primary">{req.applicant}</td>
-                            <td className="px-5 py-4 text-right font-mono font-bold text-primary">
-                              ${req.amount.toLocaleString("es-CL")}
-                            </td>
-                            <td className="px-5 py-4 text-center">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                                req.status === "Pendiente" 
-                                  ? "bg-secondary-container/20 text-secondary"
-                                  : req.status === "Aprobada" 
-                                  ? "bg-tertiary-fixed text-on-tertiary-fixed"
-                                  : "bg-error-container text-error"
-                              }`}>
-                                {req.status}
-                              </span>
+                        {filteredRequests.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="px-5 py-8 text-center text-on-surface-variant font-medium text-xs bg-slate-50">
+                              No hay solicitudes con este estado.
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          filteredRequests.map((req) => (
+                            <tr 
+                              key={req.id}
+                              onClick={() => setSelectedReqId(req.id)}
+                              className={`cursor-pointer transition-colors ${
+                                selectedReqId === req.id 
+                                  ? "bg-secondary-fixed/30 border-l-4 border-l-secondary font-bold" 
+                                  : "hover:bg-surface-container-low/40"
+                              }`}
+                            >
+                              <td className="px-5 py-4">
+                                <div className="flex flex-col text-left">
+                                  <span className="font-extrabold text-primary flex items-center gap-1.5 flex-wrap">
+                                    {req.department}
+                                    {req.isException && (
+                                      <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0">
+                                        Excepción
+                                      </span>
+                                    )}
+                                    {req.cerrado && (
+                                      <span className="bg-emerald-100 text-emerald-950 border border-emerald-300 text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0">
+                                        Cerrado
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="text-[10px] text-on-surface-variant truncate max-w-[200px] mt-0.5">{req.description}</span>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 font-semibold text-primary">{req.applicant}</td>
+                              <td className="px-5 py-4 text-right font-mono font-bold text-primary">
+                                ${req.amount.toLocaleString("es-CL")}
+                              </td>
+                              <td className="px-5 py-4 text-center">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                                  req.status === "Pendiente" 
+                                    ? "bg-secondary-container/20 text-secondary"
+                                    : req.status === "Aprobada" 
+                                    ? "bg-tertiary-fixed text-on-tertiary-fixed"
+                                    : "bg-error-container text-error"
+                                }`}>
+                                  {req.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
                 </div>
                 <div className="p-4 bg-[#f8fafc] border-t border-outline-variant/30 flex justify-between items-center text-xs text-on-surface-variant">
-                  <span>Mostrando {fundRequests.length} solicitudes registradas</span>
-                  <span className="font-extrabold text-secondary">Filtro: Todos</span>
+                  <span>Mostrando {filteredRequests.length} solicitudes (de {matchedRequests.length} filtradas de {fundRequests.length} totales)</span>
+                  <span className="font-bold text-secondary">Filtro: {filterState === "todos" ? "Todos" : filterState}</span>
                 </div>
               </div>
 
