@@ -102,6 +102,89 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
   // --- REVIEW BOARD STATE ---
   const [selectedReqId, setSelectedReqId] = useState<string>("");
   const [adminComment, setAdminComment] = useState("");
+
+  // --- EXISTING OUTSTANDING FUND REQUEST REGISTRAR (TREASURER ONLY) ---
+  const [showAddExistingModal, setShowAddExistingModal] = useState(false);
+  const [existingDeptId, setExistingDeptId] = useState("");
+  const [existingApplicant, setExistingApplicant] = useState("");
+  const [existingAmount, setExistingAmount] = useState("");
+  const [existingBoardVote, setExistingBoardVote] = useState("Asignación Directa");
+  const [existingDescription, setExistingDescription] = useState("");
+  const [existingExpectedDate, setExistingExpectedDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [existingRecipientType, setExistingRecipientType] = useState<"director" | "otra_persona">("director");
+  const [existingRecipientName, setExistingRecipientName] = useState("");
+  const [existingRecipientRut, setExistingRecipientRut] = useState("");
+  const [existingRecipientEmail, setExistingRecipientEmail] = useState("");
+  const [existingBank, setExistingBank] = useState("Banco Estado");
+  const [existingAccountType, setExistingAccountType] = useState("Cuenta Corriente");
+  const [existingAccountNumber, setExistingAccountNumber] = useState("");
+
+  React.useEffect(() => {
+    if (showAddExistingModal && matchedDepts.length > 0) {
+      const firstDept = matchedDepts[0];
+      setExistingDeptId(firstDept.id);
+      setExistingApplicant(firstDept.director);
+    }
+  }, [showAddExistingModal, matchedDepts]);
+
+  const handleExistingDeptChange = (deptId: string) => {
+    setExistingDeptId(deptId);
+    const deptObj = departments.find(d => d.id === deptId);
+    if (deptObj) {
+      setExistingApplicant(deptObj.director);
+    }
+  };
+
+  const handleCreateExistingRequestSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const reqVal = parseFloat(existingAmount);
+    if (isNaN(reqVal) || reqVal <= 0) {
+      alert("Por favor ingrese un monto a registrar válido.");
+      return;
+    }
+
+    const selectedDeptObj = departments.find(d => d.id === existingDeptId);
+    if (!selectedDeptObj) {
+      alert("Por favor seleccione un departamento válido.");
+      return;
+    }
+
+    const newReqId = `REQ-EXISTENTE-${fundRequests.length + 101}`;
+
+    const newReq: FundRequest = {
+      id: newReqId,
+      department: selectedDeptObj.name,
+      applicant: existingApplicant,
+      amount: reqVal,
+      boardVote: existingBoardVote || "Asignación Directa",
+      description: existingDescription || "Fondo por Rendir (Registro Retroactivo)",
+      expectedDate: existingExpectedDate,
+      recipientType: existingRecipientType,
+      recipientName: existingRecipientType === "director" ? existingApplicant : existingRecipientName,
+      recipientRut: existingRecipientType === "director" ? "" : existingRecipientRut,
+      recipientEmail: existingRecipientType === "director" ? "" : existingRecipientEmail,
+      bank: existingRecipientType === "director" ? "Banco Central" : existingBank,
+      accountType: existingRecipientType === "director" ? "Cuenta Vista" : existingAccountType,
+      accountNumber: existingRecipientType === "director" ? "9999 1111 2222" : existingAccountNumber || "9999 1111 2222",
+      status: "Aprobada",
+      isException: reqVal > 100000,
+      cerrado: false
+    };
+
+    onAddRequest(newReq);
+    setShowAddExistingModal(false);
+
+    // Reset fields
+    setExistingAmount("");
+    setExistingDescription("");
+    setExistingBoardVote("Asignación Directa");
+    setExistingRecipientName("");
+    setExistingRecipientRut("");
+    setExistingRecipientEmail("");
+    setExistingAccountNumber("");
+
+    alert(`Fondo por rendir existente registrado con éxito con Folio ${newReqId}. El fondo ya puede ser seleccionado en las rendiciones.`);
+  };
   
   const selectedDept = departments.find(d => d.id === selectedDeptId);
   const currentDeptUsedReal = selectedDept ? selectedDept.budgetUsed : 0;
@@ -270,6 +353,15 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
             {mode === "nueva" && "Complete el formulario formal indicando el monto y el voto de junta que faculta el adelanto."}
           </p>
         </div>
+        {mode === "gestion" && (
+          <button
+            type="button"
+            onClick={() => setShowAddExistingModal(true)}
+            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 hover:shadow-md text-white font-extrabold text-[11px] uppercase tracking-wider rounded-xl cursor-pointer flex items-center gap-2 transition-all transform active:scale-95 select-none shrink-0"
+          >
+            <PlusCircle className="w-4 h-4 shrink-0" /> Registrar Fondo Existente
+          </button>
+        )}
       </div>
 
       <AnimatePresence mode="wait">
@@ -992,6 +1084,258 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
               >
                 Entendido
               </button>
+            </motion.div>
+          </div>
+        )}
+
+        {showAddExistingModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              onClick={() => setShowAddExistingModal(false)}
+            />
+            
+            <motion.div 
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              className="relative bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-outline-variant/30 z-10 overflow-hidden"
+            >
+              <div className="bg-primary/5 px-6 py-4 border-b border-outline-variant/30 flex justify-between items-center select-none">
+                <div className="flex items-center gap-2">
+                  <PlusCircle className="w-5 h-5 text-emerald-600" />
+                  <h2 className="text-base font-black text-primary font-sans uppercase tracking-wider">Registrar Fondo por Rendir Existente</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddExistingModal(false)}
+                  className="p-1 rounded-lg hover:bg-slate-205 transition-colors text-outline cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateExistingRequestSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto text-left">
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  Utilice este formulario para registrar de forma retroactiva fondos que ya fueron entregados a líderes de departamento en periodos anteriores y cuyos comprobantes están pendientes de rendición. El fondo se creará directamente en estado <strong className="text-emerald-700 font-extrabold font-sans">Aprobado</strong> y quedará listo para ser asociado a rendiciones.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Department select */}
+                  <div className="space-y-1.5 col-span-1 md:col-span-2">
+                    <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Fondo de Departamento / Tesorería</label>
+                    <select 
+                      value={existingDeptId}
+                      onChange={(e) => handleExistingDeptChange(e.target.value)}
+                      className="w-full bg-slate-50 border border-outline-variant rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-secondary transition-all outline-none text-primary font-medium cursor-pointer"
+                      required
+                    >
+                      <option value="">-- Seleccione Departamento --</option>
+                      {matchedDepts.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} (Director: {d.director})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Applicant name */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Persona Titular / Solicitante</label>
+                    <input 
+                      type="text" 
+                      value={existingApplicant}
+                      onChange={(e) => setExistingApplicant(e.target.value)}
+                      className="w-full bg-slate-50 border border-outline-variant rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-secondary transition-all outline-none text-primary font-medium"
+                      placeholder="Nombre de quien rinde"
+                      required
+                    />
+                  </div>
+
+                  {/* Amount to request */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block font-sans">Monto Entregado (CLP)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-xs">$</span>
+                      <input 
+                        type="number" 
+                        value={existingAmount}
+                        onChange={(e) => setExistingAmount(e.target.value)}
+                        className="w-full bg-slate-50 border border-outline-variant rounded-lg p-2.5 pl-7 text-xs focus:ring-1 focus:ring-secondary transition-all outline-none text-primary font-bold"
+                        placeholder="Monto en pesos chilenos"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Board vote approval reference */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Voto ACMS / Junta Directiva</label>
+                    <input 
+                      type="text" 
+                      value={existingBoardVote}
+                      onChange={(e) => setExistingBoardVote(e.target.value)}
+                      className="w-full bg-slate-50 border border-outline-variant rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-secondary transition-all outline-none text-primary font-semibold"
+                      placeholder="Ej: V-2026-04 o Asignación Directa"
+                    />
+                  </div>
+
+                  {/* Expected date / Delivered date */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Fecha de Entrega de Fondos</label>
+                    <input 
+                      type="date" 
+                      value={existingExpectedDate}
+                      onChange={(e) => setExistingExpectedDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-outline-variant rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-secondary transition-all outline-none text-primary font-medium"
+                      required
+                    />
+                  </div>
+
+                  {/* Description of funds */}
+                  <div className="space-y-1.5 col-span-1 md:col-span-2">
+                    <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Descripción / Destino del Gasto</label>
+                    <input 
+                      type="text" 
+                      value={existingDescription}
+                      onChange={(e) => setExistingDescription(e.target.value)}
+                      className="w-full bg-slate-50 border border-outline-variant rounded-lg p-2.5 text-xs focus:ring-1 focus:ring-secondary transition-all outline-none text-primary font-medium"
+                      placeholder="Ej: Adquisición de materiales Escuela Sabática"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Recipient Account Details block */}
+                <div className="bg-slate-50 rounded-xl p-4 border border-outline-variant/30 space-y-4">
+                  <div className="flex items-center gap-2 select-none border-b border-slate-200 pb-2">
+                    <CreditCard className="w-4 h-4 text-secondary shrink-0" />
+                    <h3 className="text-xs font-black text-primary uppercase tracking-wider">Detalles de Transferencia / Destinatario</h3>
+                  </div>
+
+                  {/* Destination mode toggle */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Beneficiario</label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-1.5 text-xs font-semibold text-primary cursor-pointer select-none">
+                        <input 
+                          type="radio" 
+                          name="existingRecipientType" 
+                          checked={existingRecipientType === "director"}
+                          onChange={() => setExistingRecipientType("director")}
+                          className="text-secondary focus:ring-secondary h-3.5 w-3.5 cursor-pointer"
+                        />
+                        <span>Mismo Solicitante ({existingApplicant || "Director"})</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs font-semibold text-primary cursor-pointer select-none">
+                        <input 
+                          type="radio" 
+                          name="existingRecipientType" 
+                          checked={existingRecipientType === "otra_persona"}
+                          onChange={() => setExistingRecipientType("otra_persona")}
+                          className="text-secondary focus:ring-secondary h-3.5 w-3.5 cursor-pointer"
+                        />
+                        <span>Tercera Persona o Proveedor</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {existingRecipientType === "otra_persona" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-on-surface-variant uppercase block">Nombre Completo</label>
+                        <input 
+                          type="text" 
+                          value={existingRecipientName}
+                          onChange={(e) => setExistingRecipientName(e.target.value)}
+                          className="w-full bg-white border border-outline-variant rounded-lg p-2 text-xs text-primary"
+                          placeholder="Nombre del beneficiario"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-on-surface-variant uppercase block">RUT</label>
+                        <input 
+                          type="text" 
+                          value={existingRecipientRut}
+                          onChange={(e) => setExistingRecipientRut(e.target.value)}
+                          className="w-full bg-white border border-outline-variant rounded-lg p-2 text-xs text-primary"
+                          placeholder="12.345.678-9"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-on-surface-variant uppercase block">Correo Electrónico</label>
+                        <input 
+                          type="email" 
+                          value={existingRecipientEmail}
+                          onChange={(e) => setExistingRecipientEmail(e.target.value)}
+                          className="w-full bg-white border border-outline-variant rounded-lg p-2 text-xs text-primary"
+                          placeholder="ejemplo@correo.com"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-on-surface-variant uppercase block">Banco</label>
+                        <select 
+                          value={existingBank}
+                          onChange={(e) => setExistingBank(e.target.value)}
+                          className="w-full bg-white border border-outline-variant rounded-lg p-2 text-xs text-primary cursor-pointer"
+                          required
+                        >
+                          {bankList.map((bName) => (
+                            <option key={bName} value={bName}>{bName}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-on-surface-variant uppercase block">Tipo Cuenta</label>
+                        <select 
+                          value={existingAccountType}
+                          onChange={(e) => setExistingAccountType(e.target.value)}
+                          className="w-full bg-white border border-outline-variant rounded-lg p-2 text-xs text-primary cursor-pointer"
+                        >
+                          <option>Cuenta Corriente</option>
+                          <option>Cuenta de Ahorros</option>
+                          <option>Cuenta Vista</option>
+                          <option>Vale Vista / Cheque</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-on-surface-variant uppercase block">Número de Cuenta</label>
+                        <input 
+                          type="text" 
+                          value={existingAccountNumber}
+                          onChange={(e) => setExistingAccountNumber(e.target.value)}
+                          className="w-full bg-white border border-outline-variant rounded-lg p-2 text-xs text-primary font-mono"
+                          placeholder="9999 1111 2222"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Submit footer buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddExistingModal(false)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" /> Registrar Fondo Activo
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
