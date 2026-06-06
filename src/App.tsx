@@ -275,24 +275,7 @@ export default function App() {
   const [spaces, setSpaces] = useState<SpaceResource[]>(SPACES_SEED);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(BANK_ACCOUNTS_SEED);
   const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>(BANK_TRANSACTIONS_SEED);
-  const [boardActas, setBoardActas] = useState<BoardActa[]>([
-    {
-      voto: "2026 – 001",
-      fecha: "01 de enero de 2026",
-      tipo: "Regular",
-      titulo: "REUNIÓN INAUGURAL",
-      descripcion: "VOTADO aprobar la planificación financiera e integral para el inicio de las actividades departamentales.",
-      firmadoPor: "Pr. Pastor Demo",
-      peso: "1.2 MB",
-      year: 2026,
-      month: "Enero",
-      dateVal: "2026-01-01",
-      linkDrive: "https://drive.google.com/drive/folders/placeholder-drive-folder-id",
-      lugar: "Sede de la Iglesia",
-      participantes: "Pastor Demo, Secretaria Demo, Tesorero Demo, Anciano Demo",
-      oracionInicio: "Pr. Pastor Demo"
-    }
-  ]);
+  const [boardActas, setBoardActas] = useState<BoardActa[]>([]);
 
   const [tesoreriaBalances, setTesoreriaBalances] = useState<TesoreriaBalance[]>([
     {
@@ -302,23 +285,12 @@ export default function App() {
       linkDrive: "https://drive.google.com/drive/folders/placeholder-drive-folder-id",
       creadoPor: "Tesorero Demo",
       peso: "1.0 MB",
-      descripcion: "Balance de comprobación de fondos y estado contable del primer mes del año.",
+      descripcion: "Balance de comprobación de fondos and estado contable del primer mes del año.",
       year: 2026
     }
   ]);
 
-  const [boardVotos, setBoardVotos] = useState<BoardVoto[]>([
-    {
-      id: "voto-1",
-      departamento: "Ministerio Joven",
-      solicitante: "Director Demo",
-      solicitanteEmail: "director@ejemplo.com",
-      descripcion: "PROPONE Adquirir materiales educativos oficiales para las actividades juveniles, financiados con Cargo al Fondo de Ministerio Joven.",
-      linkDriveDoc: "https://drive.google.com/drive/folders/placeholder-drive-folder-id",
-      fechaEnvio: "2026-01-01",
-      estado: "Aprobado"
-    }
-  ]);
+  const [boardVotos, setBoardVotos] = useState<BoardVoto[]>([]);
 
   const [votosPlazoLimite, setVotosPlazoLimite] = useState<string>("2026-06-03");
 
@@ -545,6 +517,10 @@ export default function App() {
   };
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
 
+  const userNotifications = React.useMemo(() => {
+    return notifications.filter(n => !n.userEmail || n.userEmail.toLowerCase() === currentUser?.email.toLowerCase());
+  }, [notifications, currentUser]);
+
   const handleAddNotification = (title: string, message: string, category: "solicitud" | "rendicion" | "calendario" | "sistema", userEmail?: string) => {
     const newNotif: SystemNotification = {
       id: `notif-${Date.now()}`,
@@ -568,8 +544,9 @@ export default function App() {
   };
 
   const handleClearAllNotifications = () => {
-    setNotifications([]);
-    notifications.forEach(notif => {
+    const toDelete = notifications.filter(n => !n.userEmail || n.userEmail.toLowerCase() === currentUser?.email.toLowerCase());
+    setNotifications(prev => prev.filter(n => n.userEmail && n.userEmail.toLowerCase() !== currentUser?.email.toLowerCase()));
+    toDelete.forEach(notif => {
       deleteFirestoreDoc("notifications", notif.id);
     });
   };
@@ -1180,7 +1157,7 @@ export default function App() {
               cargos={cargos}
               bankAccounts={bankAccounts}
               bankTransactions={bankTransactions}
-              notifications={notifications}
+              notifications={userNotifications}
               onMarkNotificationRead={handleMarkNotificationRead}
               onClearAllNotifications={handleClearAllNotifications}
             />

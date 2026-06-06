@@ -400,31 +400,8 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
     }
   }, [currentUser, departments]);
 
-  const [newProject, setNewProject] = useState("Campamento Jóvenes 2026");
-  const [draftItems, setDraftItems] = useState<ExpenseItem[]>([
-    {
-      id: "item-init-1",
-      date: "2026-05-10",
-      category: "Alimentación",
-      docType: "Boleta",
-      rut: "76.884.210-9",
-      amount: 145000,
-      receiptUploaded: true,
-      receiptUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1byOPm4PZWJ1Th8WYr6yvmJiccPfF7IRBBPg__YmsLshS1_zu3553zuCh_WdAlhLQmrIzw46AFuUL64H43TdDvLs5WlVlRraZmVGCt-ZDhZwo17OWK1dSH3O_5XKri6wLtjJiUykqVTDTg0uhqdo6fSKzdZQIU3YhIY2vEHdQ9Cyfx9C4_k4l2bb80zFioL91mNpBe4K9kAmb3N9pcGx1XtoH-M3KT7kRvv5PvN4vwA70IpXRVTAY2R7187odpP4LrA8rAXBo3LzJ",
-      description: "Víveres para rancho y delegación"
-    },
-    {
-      id: "item-init-2",
-      date: "2026-05-12",
-      category: "Transporte",
-      docType: "Factura",
-      rut: "77.104.550-2",
-      amount: 82000,
-      receiptUploaded: true,
-      receiptUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBTiyBIZ1q1M_0i_QP3ckq6sORWw_5AG45PvEJbK8DdSbsrymUBaEsev92YZB_9j1ejgUxB53vu38kpRDkOeks3HeHM17QI3OCegrkJqQhDhiQ03pAIxbs64SttdmUDMmAmLSzfZlJXV1QPTTFBEZ6DVjsbUxaYfskFvGfnzmm_dNRKIDGpqwpBjEee8XiIf1cMeWem5VTXMMMu5XdJ3Y4LI2DLi7RlOqgsjYopQyuno9vhZmiiR_N52tDGI7qOW3bh53rIV5rp6i5g",
-      description: "Combustible camioneta"
-    }
-  ]);
+  const [newProject, setNewProject] = useState("");
+  const [draftItems, setDraftItems] = useState<ExpenseItem[]>([]);
 
   // Associated fund request and banking/devolution states
   const [selectedFondoId, setSelectedFondoId] = useState<string>("");
@@ -454,6 +431,7 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
   const [itemRut, setItemRut] = useState("");
   const [itemAmount, setItemAmount] = useState("");
   const [itemDesc, setItemDesc] = useState("");
+  const [itemReceiptUrl, setItemReceiptUrl] = useState("");
 
   const handleAddDraftLine = () => {
     const parsedAmount = parseFloat(itemAmount);
@@ -469,7 +447,8 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
       docType: itemDocType,
       rut: itemRut,
       amount: parsedAmount,
-      receiptUploaded: true,
+      receiptUploaded: !!itemReceiptUrl,
+      receiptUrl: itemReceiptUrl || "",
       description: itemDesc || "Gasto general"
     };
 
@@ -477,6 +456,7 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
     setItemRut("");
     setItemAmount("");
     setItemDesc("");
+    setItemReceiptUrl("");
   };
 
   const handleRemoveDraftLine = (id: string) => {
@@ -1386,7 +1366,7 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                   <Plus className="w-4 h-4 text-secondary shrink-0" /> Añadir Nueva Línea de Boleta
                 </p>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-6 gap-3 text-xs">
                   
                   {/* Item Date */}
                   <div className="space-y-1">
@@ -1451,8 +1431,23 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                     />
                   </div>
 
+                  {/* Link with photo/comprobante dropdown */}
+                  <div className="space-y-1">
+                    <span className="text-[9px] text-[#1e73e8] uppercase font-black">🔗 Vincular Foto</span>
+                    <select 
+                      value={itemReceiptUrl}
+                      onChange={(e) => setItemReceiptUrl(e.target.value)}
+                      className="w-full bg-white border border-blue-200 focus:border-blue-500 p-2 rounded outline-none cursor-pointer text-blue-700 font-extrabold"
+                    >
+                      <option value="">-- Sin Foto --</option>
+                      {uploadedComprobantes.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Expense line details Description */}
-                  <div className="col-span-1 sm:col-span-4 space-y-1">
+                  <div className="col-span-1 sm:col-span-5 space-y-1">
                     <span className="text-[9px] text-on-surface-variant uppercase font-bold">Descripción del Documento / Producto</span>
                     <input 
                       type="text" 
@@ -1495,6 +1490,11 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                         <td className="px-4 py-3">
                           <div className="font-extrabold text-primary">{item.docType}: {item.category}</div>
                           <span className="text-[10px] text-on-surface-variant block mt-0.5">{item.description}</span>
+                          {item.receiptUrl && (
+                            <span className="inline-flex items-center gap-1 mt-1 text-[9px] bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded border border-blue-100">
+                              🔗 Vinculado a: {item.receiptUrl}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 font-mono text-on-surface-variant">{item.rut}</td>
                         <td className="px-4 py-3 text-right font-mono font-bold text-primary">
