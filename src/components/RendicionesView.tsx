@@ -4,10 +4,11 @@
  */
 
 import React, { useState } from "react";
+import { jsPDF } from "jspdf";
 import { ExpenseRendition, ExpenseItem, Department, User, Cargo, FundRequest, BoardVoto } from "../types";
 import { 
   FileCheck, CheckSquare, Square, AlertTriangle, Landmark, Eye, Trash, 
-  Plus, Check, X, Info, FileText, Image as ImageIcon, Sliders, Send 
+  Plus, Check, X, Info, FileText, Image as ImageIcon, Sliders, Send, CreditCard 
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -173,6 +174,387 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
       description: "Nuevo gasto editado"
     };
     setEditItems(prev => [...prev, newItem]);
+  };
+
+  const getBase64FromUrl = async (url: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.setAttribute("crossOrigin", "anonymous");
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL("image/jpeg", 0.75);
+            resolve(dataURL);
+          } else {
+            resolve(null);
+          }
+        } catch (err) {
+          console.error("Canvas conversion error", err);
+          resolve(null);
+        }
+      };
+      img.onerror = () => {
+        resolve(null);
+      };
+      img.src = url;
+    });
+  };
+
+  const generateRealRendicionPDF = async (rend: ExpenseRendition) => {
+    if (!rend) return;
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    // 1. Draw header background decoration and logo text info
+    const drawPDFHeader = () => {
+      // Top deep corporate blue accent block
+      doc.setFillColor(21, 82, 166);
+      doc.rect(10, 10, 190, 4, "F");
+
+      // Custom geometric seal representation in gold/blue
+      doc.setFillColor(197, 160, 89); // gold / brown
+      doc.rect(15, 17, 3, 10, "F");
+      doc.setFillColor(21, 82, 166); // deep blue
+      doc.rect(19, 17, 1.5, 10, "F");
+      doc.setDrawColor(197, 160, 89);
+      doc.setLineWidth(0.45);
+      doc.line(15, 17, 28, 19);
+      doc.line(15, 22, 28, 22);
+      doc.line(15, 27, 28, 25);
+
+      // Main branding info
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(10.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text("IGLESIA ADVENTISTA DEL SÉPTIMO DÍA", 33, 21);
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("DEPARTAMENTO DE TESORERÍA - ASOCIACIÓN SUR CHILE (IASD)", 33, 25);
+
+      doc.setFontSize(14);
+      doc.setTextColor(21, 82, 166); // IASD blue
+      doc.text("RENDICIÓN DE GASTOS", 33, 33);
+
+      // Date stamp & file reference
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(112, 128, 144);
+      
+      const rendDateStr = rend.dateSent || new Date().toLocaleDateString("es-CL");
+      doc.text(`Fecha Rendición: ${rendDateStr}`, 145, 21);
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Expediente N°: ${rend.folio}`, 145, 26);
+
+      // Horizontal separator line
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.5);
+      doc.line(10, 37, 200, 37);
+    };
+
+    drawPDFHeader();
+
+    // 2. Render details fields
+    let y = 43;
+    doc.setFillColor(248, 250, 252);
+    doc.rect(10, y, 190, 24, "F");
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(10, y, 190, 24, "S");
+
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+
+    // Data definitions Left Columns
+    doc.text("PERSONA QUE RINDE:", 14, y + 6);
+    doc.text("FONDO DE TESORERÍA:", 14, y + 12);
+    doc.text("CONCEPTO / ACTIVIDAD:", 14, y + 18);
+
+    doc.setFont("Helvetica", "normal");
+    doc.setTextColor(15, 23, 42);
+    doc.text(rend.applicant.toUpperCase(), 62, y + 6);
+    doc.text(rend.department.toUpperCase(), 62, y + 12);
+    doc.text((rend.project || "Proyecto General de Iglesia").toUpperCase(), 62, y + 18);
+
+    // Right Column of Metadata Panel
+    doc.setFont("Helvetica", "bold");
+    doc.setTextColor(71, 85, 105);
+    doc.text("ESTADO INFORME:", 142, y + 6);
+    doc.text("MEDIO DE PAGO:", 142, y + 12);
+    doc.text("VOTO ACMS:", 142, y + 18);
+
+    doc.setFont("Helvetica", "bold");
+    if (rend.status === "Aprobada") {
+      doc.setTextColor(21, 128, 61);
+    } else if (rend.status === "Observada") {
+      doc.setTextColor(194, 120, 3);
+    } else {
+      doc.setTextColor(220, 38, 38);
+    }
+    doc.text(rend.status.toUpperCase(), 176, y + 6);
+
+    doc.setFont("Helvetica", "normal");
+    doc.setTextColor(15, 23, 42);
+    doc.text(rend.pagada ? "PAGADA / REEMBOLSADA" : "PENDIENTE DE PAGO", 176, y + 12);
+    doc.text(rend.votoAsociadoId || "S/V (Asignación)", 176, y + 18);
+
+    // 3. Table representation
+    y += 30;
+    doc.setFillColor(21, 82, 166);
+    doc.rect(10, y, 190, 7.5, "F");
+
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+
+    const headers = ["FECHA", "DOC / COMPROBANTE", "RUT PROVEEDOR", "DETALLE / GLOSA DE GASTO", "MONTO CLP"];
+    const colWidths = [24, 45, 28, 63, 30];
+
+    let currentX = 10;
+    headers.forEach((h, idx) => {
+      const align = (idx === 4) ? "right" : "left";
+      const txtX = align === "right" ? currentX + colWidths[idx] - 3 : currentX + 3;
+      doc.text(h, txtX, y + 4.8, { align });
+      currentX += colWidths[idx];
+    });
+
+    y += 7.5;
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(30, 41, 59);
+
+    const approvedSum = rend.items
+      .filter(it => it.approved !== false)
+      .reduce((sum, it) => sum + it.amount, 0);
+
+    rend.items.forEach((it, idx) => {
+      if (idx % 2 === 0) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(10, y, 190, 6.5, "F");
+      }
+      doc.setDrawColor(241, 245, 249);
+      doc.line(10, y + 6.5, 200, y + 6.5);
+
+      let colX = 10;
+      doc.text(it.date || "S/F", colX + 3, y + 4.5);
+      colX += colWidths[0];
+
+      doc.text(`${it.docType || "Boleta"} ${it.category ? `(${it.category})` : ""}`.substring(0, 22), colX + 3, y + 4.5);
+      colX += colWidths[1];
+
+      doc.text(it.rut || "76.000.000-1", colX + 3, y + 4.5);
+      colX += colWidths[2];
+
+      doc.text((it.description || "Gasto declarado").substring(0, 36), colX + 3, y + 4.5);
+      colX += colWidths[3];
+
+      doc.setFont("Helvetica", "bold");
+      doc.text(`$ ${it.amount.toLocaleString("es-CL")}`, colX + colWidths[4] - 3, y + 4.5, { align: "right" });
+      doc.setFont("Helvetica", "normal");
+
+      y += 6.5;
+    });
+
+    // Subcontract lines for empty space to keep nice table visual rhythm
+    const remainingEmptyLines = Math.max(0, 8 - rend.items.length);
+    for (let l = 0; l < remainingEmptyLines; l++) {
+      if ((rend.items.length + l) % 2 === 0) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(10, y, 190, 6.5, "F");
+      }
+      doc.setDrawColor(241, 245, 249);
+      doc.line(10, y + 6.5, 200, y + 6.5);
+      y += 6.5;
+    }
+
+    // Totals line
+    doc.setFillColor(241, 245, 249);
+    doc.rect(10, y, 190, 8.5, "F");
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(10, y, 190, 8.5, "S");
+
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text("CERTIFICACIÓN: TOTAL DE COMPROBANTES DE LA RENDICIÓN", 14, y + 5.5);
+
+    doc.setTextColor(21, 82, 166);
+    doc.setFontSize(10);
+    doc.text(`$ ${approvedSum.toLocaleString("es-CL")} CLP`, 197, y + 5.8, { align: "right" });
+
+    // 4. Notes & Observations
+    y += 14;
+    doc.setFillColor(254, 254, 251);
+    doc.rect(10, y, 190, 16, "F");
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(10, y, 190, 16, "S");
+
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text("OBSERVACIONES / RESOLUCIÓN GENERAL:", 13, y + 5);
+
+    doc.setFont("Helvetica", "italic");
+    doc.setTextColor(100, 116, 139);
+    const obsText = rend.observations || "Sin observaciones registradas. Traspasado conforme a las regulaciones de la iglesia.";
+    doc.text(obsText.substring(0, 125), 13, y + 11);
+
+    // 5. Signature Lines (líneas de firma del tesorero, director y tesorero dpto si aplica)
+    const activeDeptObj = departments.find(d => d.name === rend.department);
+    const hasDeptTreasurer = activeDeptObj && activeDeptObj.tesorero && activeDeptObj.tesorero !== "Sin Asignar";
+
+    y += 22;
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+
+    if (hasDeptTreasurer) {
+      const wBox = 55;
+      
+      // Line 1: Director
+      doc.line(15, y + 15, 15 + wBox, y + 15);
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(51, 65, 85);
+      doc.text("DIRECTOR QUE RINDE", 15 + (wBox / 2), y + 19, { align: "center" });
+      doc.setFont("Helvetica", "normal");
+      doc.text(rend.applicant.substring(0, 24), 15 + (wBox / 2), y + 23, { align: "center" });
+
+      // Line 2: Tesorero Depto (si aplica)
+      doc.line(77, y + 15, 77 + wBox, y + 15);
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(51, 65, 85);
+      doc.text("TESORERO DEPARTAMENTO", 77 + (wBox / 2), y + 19, { align: "center" });
+      doc.setFont("Helvetica", "normal");
+      doc.text(activeDeptObj.tesorero.substring(0, 24), 77 + (wBox / 2), y + 23, { align: "center" });
+
+      // Line 3: Tesorero de iglesia
+      doc.line(140, y + 15, 140 + wBox, y + 15);
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(51, 65, 85);
+      doc.text("TESORERO DE IGLESIA", 140 + (wBox / 2), y + 19, { align: "center" });
+      doc.setFont("Helvetica", "normal");
+      doc.text("Tesorero Central / Asistente", 140 + (wBox / 2), y + 23, { align: "center" });
+    } else {
+      const wBox = 75;
+
+      // Line 1: Director
+      doc.line(20, y + 15, 20 + wBox, y + 15);
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(51, 65, 85);
+      doc.text("DIRECTOR QUE RINDE (SOLICITANTE)", 20 + (wBox / 2), y + 19, { align: "center" });
+      doc.setFont("Helvetica", "normal");
+      doc.text(rend.applicant.substring(0, 28), 20 + (wBox / 2), y + 23, { align: "center" });
+
+      // Line 2: Tesorero de iglesia
+      doc.line(115, y + 15, 115 + wBox, y + 15);
+      doc.setFont("Helvetica", "bold");
+      doc.setTextColor(51, 65, 85);
+      doc.text("TESORERO DE IGLESIA GENERAL", 115 + (wBox / 2), y + 19, { align: "center" });
+      doc.setFont("Helvetica", "normal");
+      doc.text("Tesorero Central / Asistentes", 115 + (wBox / 2), y + 23, { align: "center" });
+    }
+
+    // 6. Support Receipts Attachment Pictures (en las hojas siguientes las fotos de las boletas)
+    const itemsWithImages = rend.items.filter(it => it.receiptUrl || it.receiptUploaded);
+
+    for (let i = 0; i < itemsWithImages.length; i++) {
+      const it = itemsWithImages[i];
+      doc.addPage();
+
+      // Top colored banner for attachments page
+      doc.setFillColor(21, 82, 166);
+      doc.rect(10, 10, 190, 3, "F");
+
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(21, 82, 166);
+      doc.text(`RESPALDO DIGITAL DE COMPROBANTE - BOLETA N° ${i + 1} DE ${itemsWithImages.length}`, 15, 20);
+
+      doc.setDrawColor(226, 232, 240);
+      doc.line(10, 24, 200, 24);
+
+      // Detail fields
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text("DETALLE DEL COMPROBANTE:", 15, 30);
+      doc.text("TIPO / CERTIFICADO:", 15, 35);
+      doc.text("VALOR DECLARADO:", 15, 40);
+
+      doc.setFont("Helvetica", "normal");
+      doc.setTextColor(15, 23, 42);
+      doc.text((it.description || "Gasto de departamento").toUpperCase(), 64, 30);
+      doc.text(`${it.docType || "Boleta / Factura"} N° ${it.rut || "S/N"}`, 64, 35);
+      doc.text(`$ ${it.amount.toLocaleString("es-CL")} CLP`, 64, 40);
+
+      const frameY = 46;
+      const frameHeight = 210;
+
+      // Attempt to draw image
+      const couponUrl = it.receiptUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuA1byOPm4PZWJ1Th8WYr6yvmJiccPfF7IRBBPg__YmsLshS1_zu3553zuCh_WdAlhLQmrIzw46AFuUL64H43TdDvLs5WlVlRraZmVGCt-ZDhZwo17OWK1dSH3O_5XKri6wLtjJiUykqVTDTg0uhqdo6fSKzdZQIU3YhIY2vEHdQ9Cyfx9C4_k4l2bb80zFioL91mNpBe4K9kAmb3N9pcGx1XtoH-M3KT7kRvv5PvN4vwA70IpXRVTAY2R7187odpP4LrA8rAXBo3LzJ";
+      const imgBase64 = await getBase64FromUrl(couponUrl);
+
+      if (imgBase64) {
+        try {
+          doc.addImage(imgBase64, "JPEG", 15, frameY + 5, 180, frameHeight - 15);
+        } catch (imgErr) {
+          console.error("Embedding fallback frame", imgErr);
+          doc.setDrawColor(203, 213, 225);
+          doc.rect(15, frameY, 180, frameHeight, "S");
+          doc.setFont("Helvetica", "italic");
+          doc.setFontSize(9);
+          doc.setTextColor(100, 116, 139);
+          doc.text("No se pudo cargar la imagen del comprobante por limitación de formato de datos.", 25, frameY + 25);
+          doc.text(`Enlace de respaldo: ${couponUrl.substring(0, 80)}`, 25, frameY + 32);
+        }
+      } else {
+        // High craft bordered layout if CORS or loading is blocked
+        doc.setDrawColor(203, 213, 225);
+        doc.rect(15, frameY, 180, frameHeight, "S");
+
+        doc.setFillColor(248, 250, 252);
+        doc.rect(17, frameY + 2, 176, frameHeight - 4, "F");
+
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(10.5);
+        doc.setTextColor(30, 41, 59);
+        doc.text("IMAGEN DE COMPROBANTE CARGADO EN ARCHIVO DIGITAL", 25, frameY + 20);
+
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text("Este archivo digital está resguardado en el repositorio de la Iglesia.", 25, frameY + 28);
+        doc.text("Enlace al documento original en el servidor:", 25, frameY + 36);
+
+        doc.setFont("Helvetica", "bold");
+        doc.setTextColor(21, 82, 166);
+        const splitText = doc.splitTextToSize(couponUrl, 160);
+        doc.text(splitText, 25, frameY + 42);
+
+        // Graphic background indicator box
+        doc.setDrawColor(226, 232, 240);
+        doc.setFillColor(239, 246, 255);
+        doc.rect(35, frameY + 65, 140, 95, "F");
+        doc.rect(35, frameY + 65, 140, 95, "S");
+
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(21, 82, 166);
+        doc.text("🔗 IMAGEN DE BOLETA ASOCIADA", 105, frameY + 110, { align: "center" });
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(112, 128, 144);
+        doc.text("Haga click en el vínculo superior para abrir el archivo original interactivo.", 105, frameY + 118, { align: "center" });
+      }
+    }
+
+    doc.save(`IASD_Comprobante_Rendicion_${rend.folio}.pdf`);
   };
 
   const handlePrintRendicionPDF = (rend: ExpenseRendition) => {
@@ -742,10 +1124,18 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                   <div className="flex flex-wrap gap-2 pb-4 border-b border-outline-variant/20">
                     <button
                       type="button"
+                      onClick={() => generateRealRendicionPDF(activeRend)}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10.5px] uppercase tracking-wider rounded-lg shadow-sm flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> Descargar PDF Digital (jsPDF)
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => handlePrintRendicionPDF(activeRend)}
                       className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[10.5px] uppercase tracking-wider rounded-lg shadow-sm flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                     >
-                      <FileText className="w-3.5 h-3.5" /> Generar Formato Oficial (PDF Firma)
+                      <FileText className="w-3.5 h-3.5" /> Imprimir Formato Físico (Navegador)
                     </button>
 
                     {mode === "gestion" && (
@@ -1599,14 +1989,35 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                     // diff > 0: Reimbursement details
                     return (
                       <div className="bg-surface-container rounded-2xl p-6 border border-outline-variant/60 shadow-inner mt-4 space-y-5 text-left text-xs">
-                        <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/30">
-                          <Landmark className="w-5 h-5 text-secondary shrink-0" />
-                          <div>
-                            <h4 className="text-xs font-black text-primary uppercase tracking-wider">Datos de Transferencia para Reembolso del Excedente</h4>
-                            <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">
-                              Excedente a favor del solicitante: <strong className="text-primary font-mono">${diff.toLocaleString("es-CL")} CLP</strong>
-                            </p>
+                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-outline-variant/30 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <Landmark className="w-5 h-5 text-secondary shrink-0" />
+                            <div>
+                              <h4 className="text-xs font-black text-primary uppercase tracking-wider">Datos de Transferencia para Reembolso del Excedente</h4>
+                              <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">
+                                Excedente a favor del solicitante: <strong className="text-primary font-mono">${diff.toLocaleString("es-CL")} CLP</strong>
+                              </p>
+                            </div>
                           </div>
+                          {currentUser?.bankName && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setBank(currentUser.bankName || "");
+                                setAccountType(currentUser.accountType || "Cuenta Corriente");
+                                setAccountNumber(currentUser.accountNumber || "");
+                                setRecipientRut(currentUser.rut || "");
+                                setRecipientName(currentUser.recipientName || currentUser.name || "");
+                                setRecipientEmail(currentUser.email || "");
+                                setRecipientType("director");
+                              }}
+                              className="text-[10px] font-black text-blue-750 hover:text-blue-900 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 rounded-lg cursor-pointer transition-all"
+                              title="Pre-cargar mis datos bancarios de perfil"
+                            >
+                              <CreditCard className="w-3.5 h-3.5 text-blue-650" />
+                              Cargar mis datos
+                            </button>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1736,14 +2147,35 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                   // Direct Rendition (no linked fund) -> always request bank transfer details
                   return (
                     <div className="bg-surface-container rounded-2xl p-6 border border-outline-variant/60 shadow-inner mt-4 space-y-5 text-left text-xs">
-                      <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/30">
-                        <Landmark className="w-5 h-5 text-secondary shrink-0" />
-                        <div>
-                          <h4 className="text-xs font-black text-primary uppercase tracking-wider">Datos de Transferencia para Reembolso Directo de Gasto</h4>
-                          <p className="text-[10px] text-on-surface-variant font-medium mt-0.5 font-sans">
-                            Monto total a transferir: <strong className="text-primary font-mono">${draftTotalSum.toLocaleString("es-CL")} CLP</strong>
-                          </p>
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-outline-variant/30 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Landmark className="w-5 h-5 text-secondary shrink-0" />
+                          <div>
+                            <h4 className="text-xs font-black text-primary uppercase tracking-wider">Datos de Transferencia para Reembolso Directo de Gasto</h4>
+                            <p className="text-[10px] text-on-surface-variant font-medium mt-0.5 font-sans">
+                              Monto total a transferir: <strong className="text-primary font-mono">${draftTotalSum.toLocaleString("es-CL")} CLP</strong>
+                            </p>
+                          </div>
                         </div>
+                        {currentUser?.bankName && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBank(currentUser.bankName || "");
+                              setAccountType(currentUser.accountType || "Cuenta Corriente");
+                              setAccountNumber(currentUser.accountNumber || "");
+                              setRecipientRut(currentUser.rut || "");
+                              setRecipientName(currentUser.recipientName || currentUser.name || "");
+                              setRecipientEmail(currentUser.email || "");
+                              setRecipientType("director");
+                            }}
+                            className="text-[10px] font-black text-blue-750 hover:text-blue-900 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 rounded-lg cursor-pointer transition-all"
+                            title="Pre-cargar mis datos bancarios de perfil"
+                          >
+                            <CreditCard className="w-3.5 h-3.5 text-blue-650" />
+                            Cargar mis datos
+                          </button>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

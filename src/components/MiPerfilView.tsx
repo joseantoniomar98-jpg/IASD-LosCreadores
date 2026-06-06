@@ -8,7 +8,7 @@ import { User } from "../types";
 import { 
   UserCheck, Mail, Phone, Lock, Eye, EyeOff, Save, CheckCircle2, 
   User as UserIcon, ShieldAlert, AlertCircle, Camera, Upload, Trash, Link,
-  RefreshCw, Send, ShieldCheck, MailCheck, Globe
+  RefreshCw, Send, ShieldCheck, MailCheck, Globe, CreditCard
 } from "lucide-react";
 import { motion } from "motion/react";
 import { 
@@ -31,6 +31,13 @@ export const MiPerfilView: React.FC<MiPerfilViewProps> = ({
   const [password, setPassword] = useState(currentUser.password || "•••••••••");
   const [imageUrl, setImageUrl] = useState(currentUser.imageUrl || "");
   
+  // New banking details states
+  const [bankName, setBankName] = useState(currentUser.bankName || "");
+  const [accountType, setAccountType] = useState(currentUser.accountType || "");
+  const [accountNumber, setAccountNumber] = useState(currentUser.accountNumber || "");
+  const [rut, setRut] = useState(currentUser.rut || "");
+  const [recipientName, setRecipientName] = useState(currentUser.recipientName || "");
+
   const [showPassword, setShowPassword] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -148,7 +155,12 @@ export const MiPerfilView: React.FC<MiPerfilViewProps> = ({
       phone,
       password: password === "•••••••••" ? currentUser.password : password,
       imageUrl: imageUrl || undefined,
-      avatarLetter: name.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase()
+      avatarLetter: name.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase(),
+      bankName: bankName.trim() || undefined,
+      accountType: accountType.trim() || undefined,
+      accountNumber: accountNumber.trim() || undefined,
+      rut: rut.trim() || undefined,
+      recipientName: recipientName.trim() || undefined
     };
 
     onUpdateProfile(updated);
@@ -536,6 +548,81 @@ export const MiPerfilView: React.FC<MiPerfilViewProps> = ({
                   </div>
                 </div>
 
+              </div>
+
+              {/* Personal Bank Details Section */}
+              <div className="border-t border-outline-variant/35 pt-6 mt-6 space-y-4 text-left">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-slate-100 text-slate-700 rounded-lg">
+                    <CreditCard className="w-4.5 h-4.5 text-[#1552a6]" />
+                  </span>
+                  <div>
+                    <h5 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider">Mis Datos Bancarios para Reutilizar</h5>
+                    <span className="text-[10px] text-slate-500 font-medium leading-tight block">
+                      Guarde sus datos de transferencia para pre-cargar solicitudes de fondos por rendir y rendiciones.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-on-surface-variant uppercase font-black tracking-widest pl-0.5 block">Nombre del Banco</label>
+                    <input 
+                      type="text" 
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      className="w-full h-11 px-4 bg-white border border-outline rounded-xl font-extrabold text-primary text-xs outline-none focus:ring-1 focus:ring-secondary focus:border-secondary transition-all"
+                      placeholder="Ej: Banco Estado, Santander"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-on-surface-variant uppercase font-black tracking-widest pl-0.5 block">Tipo de Cuenta</label>
+                    <select 
+                      value={accountType}
+                      onChange={(e) => setAccountType(e.target.value)}
+                      className="w-full h-11 px-4 bg-white border border-outline rounded-xl font-extrabold text-primary text-xs outline-none focus:ring-1 focus:ring-secondary focus:border-secondary cursor-pointer transition-all"
+                    >
+                      <option value="">Seleccione tipo de cuenta...</option>
+                      <option value="Cuenta Vista">Cuenta Vista / CuentaRUT</option>
+                      <option value="Cuenta Corriente">Cuenta Corriente</option>
+                      <option value="Cuenta de Ahorro">Cuenta de Ahorro</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-on-surface-variant uppercase font-black tracking-widest pl-0.5 block">Número de Cuenta</label>
+                    <input 
+                      type="text" 
+                      value={accountNumber}
+                      onChange={(e) => setAccountNumber(e.target.value)}
+                      className="w-full h-11 px-4 bg-white border border-outline rounded-xl font-mono font-bold text-primary text-xs outline-none focus:ring-1 focus:ring-secondary focus:border-secondary transition-all"
+                      placeholder="Ej: 1234567890"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-on-surface-variant uppercase font-black tracking-widest pl-0.5 block">RUT del Titular</label>
+                    <input 
+                      type="text" 
+                      value={rut}
+                      onChange={(e) => setRut(e.target.value)}
+                      className="w-full h-11 px-4 bg-white border border-outline rounded-xl font-extrabold text-primary text-xs outline-none focus:ring-1 focus:ring-secondary focus:border-secondary transition-all"
+                      placeholder="Ej: 12.345.678-9"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-[10px] text-on-surface-variant uppercase font-black tracking-widest pl-0.5 block">Nombre del Titular</label>
+                    <input 
+                      type="text" 
+                      value={recipientName}
+                      onChange={(e) => setRecipientName(e.target.value)}
+                      className="w-full h-11 px-4 bg-white border border-outline rounded-xl font-extrabold text-primary text-xs outline-none focus:ring-1 focus:ring-secondary focus:border-secondary transition-all"
+                      placeholder="Ej: Juan Pérez Muñoz"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="pt-4 border-t border-outline-variant/35 flex justify-end">

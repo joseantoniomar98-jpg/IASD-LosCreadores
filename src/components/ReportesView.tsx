@@ -12,8 +12,9 @@ import {
   ClipboardList
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Department, FundRequest, ExpenseRendition, BankTransaction, BoardActa } from "../types";
+import { Department, FundRequest, ExpenseRendition, BankTransaction, BoardActa, BankAccount, Transfer } from "../types";
 import { jsPDF } from "jspdf";
+import * as XLSX from "xlsx";
 
 // Dynamic report imports properties
 interface ReportesViewProps {
@@ -22,6 +23,12 @@ interface ReportesViewProps {
   renditions?: ExpenseRendition[];
   bankTransactions?: BankTransaction[];
   boardActas?: BoardActa[];
+  bankAccounts?: BankAccount[];
+  onUpdateBankAccounts?: (accounts: BankAccount[]) => void;
+  onAddBankTransaction?: (tx: BankTransaction) => void;
+  onAddTransfer?: (transfer: Transfer) => void;
+  onUpdateDepartment?: (dept: Department) => void;
+  onUpdateDeptBalance?: (deptId: string, amount: number) => void;
 }
 
 // Built-in Seed fallback for robust rendering in all contexts: Kept empty to display ONLY user submitted data
@@ -34,7 +41,13 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
   fundRequests = [], 
   renditions = [], 
   bankTransactions = [],
-  boardActas = []
+  boardActas = [],
+  bankAccounts = [],
+  onUpdateBankAccounts,
+  onAddBankTransaction,
+  onAddTransfer,
+  onUpdateDepartment,
+  onUpdateDeptBalance
 }) => {
   // Navigation tabs: "generar" (Resumen), "importar" (Sincronizar ACMS), "adelantos" (Fondos por Rendir), "actas" (Actas de Junta)
   const [activeMainTab, setActiveMainTab] = useState<"generar" | "importar" | "adelantos" | "actas">("generar");
@@ -95,7 +108,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
 
   // --- ACMS INTEGRATION IMPORTER STATE ---
   const [dragActive, setDragActive] = useState(false);
-  const [selectedAcmsType, setSelectedAcmsType] = useState<"balance" | "banco" | "ofrendas">("balance");
+  const [selectedAcmsType, setSelectedAcmsType] = useState<"balance" | "banco" | "ofrendas" | "tesoreria" | "departamento">("balance");
   const [selectedFileFormat, setSelectedFileFormat] = useState<"xlsx" | "csv" | "pdf">("xlsx");
   const [loadedFileName, setLoadedFileName] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
@@ -110,7 +123,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
   ]);
 
   // Simulated parsed ACMS payloads
-  const SIMULATED_ACMS_PAYLOADS = {
+  const SIMULATED_ACMS_PAYLOADS: Record<string, any> = {
     balance: {
       title: "Balance de Comprobación Consolidado ACMS - Mayo/Junio 2026",
       summary: "Saldos auditados por la tesorería de la Asociación Chilena Centro",
@@ -122,6 +135,13 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
         ["1.1.1.05", "Ministerio Infantil (4%)", "$680,000", "$380,000", "$150,050", "$909,950"],
         ["1.1.1.08", "Fondo Conquistadores (4%)", "$1,140,000", "$600,000", "$450,000", "$1,290,000"],
         ["1.1.2.03", "Ofrendas Especiales - Sobres", "$530,000", "$1,420,000", "$930,000", "$1,020,000"]
+      ],
+      rawRows: [
+        ["1.1.1.01", "Gasto de Iglesia", "4200000", "2840000", "1120000", "53"],
+        ["1.1.1.02", "Evangelismo Extraordinario", "1850500", "1200000", "800000", "9"],
+        ["1.1.1.04", "Ministerio Joven", "950000", "480000", "320000", "4"],
+        ["1.1.1.05", "Ministerio Infantil", "680000", "380000", "150050", "4"],
+        ["1.1.1.08", "Club de Conquistadores", "1140000", "600000", "450000", "4"]
       ]
     },
     banco: {
@@ -134,6 +154,13 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
         ["2026-06-05", "Débito Comisión Cta Corriente", "REF-COM-0112", "$0", "$18,500", "Conciliado OK"],
         ["2026-06-08", "Recaudación Escuela Sabática Sábado 7", "REF-SAB-0814", "$482,500", "$0", "Conciliado OK"],
         ["2026-06-12", "Fondo Adelantado REQ-2024-049 jóvenes", "REF-REQ-0428", "$0", "$350,000", "Conciliado OK"]
+      ],
+      rawRows: [
+        ["2026-06-01", "Depósito Ofrendas Generales Mayo 31", "3542000", "Ingreso", "Banco Estado Principal", "Ofrendas"],
+        ["2026-06-03", "Cargo Transferencia Voto V-2026-05-18", "2400000", "Gasto", "Banco Estado Principal", "Administración"],
+        ["2026-06-05", "Débito Comisión Cta Corriente", "18500", "Gasto", "Banco Estado Principal", "Administración"],
+        ["2026-06-08", "Recaudación Escuela Sabática Sábado 7", "482500", "Ingreso", "Banco Estado Principal", "Ofrendas"],
+        ["2026-06-12", "Fondo Adelantado REQ-2024-049 jóvenes", "350000", "Gasto", "Banco Estado Principal", "Ministerio Joven"]
       ]
     },
     ofrendas: {
@@ -148,6 +175,44 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
         ["Club de Conquistadores", "4.0%", "$400,050", "$200,025", "$0", "$200,025"],
         ["Damas y Hogar / Dorcas", "3.0%", "$300,000", "$150,000", "$0", "$150,000"],
         ["Asociación (Cofre Central)", "23.0%", "$2,300,000", "$2,300,000", "$0", "$0"]
+      ],
+      rawRows: [
+        ["Gasto de Iglesia", "53.0", "5300000"],
+        ["Evangelismo Local", "9.0", "900000"],
+        ["Ministerio Joven", "4.0", "400050"],
+        ["Ministerio Infantil", "4.0", "400050"],
+        ["Club de Conquistadores", "4.0", "400050"],
+        ["Damas y Hogar / Dorcas", "3.0", "300000"]
+      ]
+    },
+    tesoreria: {
+      title: "Movimientos de Tesorería Extraídos (Entradas y Salidas)",
+      summary: "Registros de ingresos y egresos de caja y bancos leídos",
+      headers: ["Fecha", "Descripción", "Monto", "Tipo", "Fondo", "Cuenta"],
+      rows: [
+        ["2026-06-01", "Gasto en Folletos de Escuela Sabática", "$45,000", "Gasto", "Administración", "Banco Estado Principal"],
+        ["2026-06-02", "Ingreso Ofrendas del Sábado", "$120,000", "Ingreso", "Evangelismo Local", "Banco Estado Principal"],
+        ["2026-06-03", "Ajuste Directo Caja de Ahorros", "$25,000", "Gasto", "Ministerio Joven", "Cuenta Ahorro Iglesia"]
+      ],
+      rawRows: [
+        ["2026-06-01", "Gasto en Folletos de Escuela Sabática", "45000", "Gasto", "Administración", "Banco Estado Principal"],
+        ["2026-06-02", "Ingreso Ofrendas del Sábado", "120000", "Ingreso", "Evangelismo Local", "Banco Estado Principal"],
+        ["2026-06-03", "Ajuste Directo Caja de Ahorros", "25000", "Gasto", "Ministerio Joven", "Cuenta Ahorro Iglesia"]
+      ]
+    },
+    departamento: {
+      title: "Saldos Contables y Presupuestos por Departamento",
+      summary: "Mapeo de límites de gastos asignados y saldos de origen",
+      headers: ["Código", "Departamento", "Inicial", "Tope/Presupuesto", "Usado/Egresos", "Porcentaje Asignado"],
+      rows: [
+        ["ADM", "Administración", "$5,000,000", "$6,000,000", "$1,200,000", "53%"],
+        ["JOV", "Ministerio Joven", "$1,000,000", "$1,500,000", "$450,000", "15%"],
+        ["INF", "Ministerio Infantil", "$800,000", "$1,000,000", "$150,000", "8%"]
+      ],
+      rawRows: [
+        ["ADM", "Administración", "5000000", "6000000", "1200000", "53"],
+        ["JOV", "Ministerio Joven", "1000000", "1500000", "450000", "15"],
+        ["INF", "Ministerio Infantil", "800000", "1000000", "150000", "8"]
       ]
     }
   };
@@ -165,17 +230,52 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
           .reduce((sum, r) => sum + r.totalAmount, 0);
         if (matchingRend > 0) egresos = matchingRend;
       }
-      const initial = d.budgetAllocated;
-      const saldo = initial - egresos;
-      const percentage = Math.round((egresos / initial) * 100) || 0;
+      const allocated = d.budgetAllocated;
+      const departInitial = d.initialBudget !== undefined ? d.initialBudget : allocated;
+
+      // Calculate department specific incomes
+      const percentage = d.assignedPercentage ?? 10;
+      let incomesSum = 0;
+      bankTransactions.forEach(tx => {
+        if (tx.type === "Ingreso") {
+          const matched = tx.category.toLowerCase().includes(d.name.toLowerCase()) ||
+                          tx.description.toLowerCase().includes(d.name.toLowerCase()) ||
+                          tx.category.toLowerCase().includes(d.category.toLowerCase());
+          if (matched) {
+            incomesSum += tx.amount;
+          } else if (tx.category.toLowerCase().includes("ofrenda") || tx.category.toLowerCase().includes("diezmo") || tx.category.toLowerCase().includes("generales") || tx.category.toLowerCase().includes("colecta")) {
+            incomesSum += Math.round(tx.amount * (percentage / 100));
+          }
+        }
+      });
+
+      // Calculate pending/outstanding advances
+      const pendingAdvances = fundRequests
+        .filter(r => r.department === d.name && r.status === "Aprobada" && r.cerrado !== true)
+        .reduce((sum, r) => sum + r.amount, 0);
+
+      const totalPresupuestoFondo = departInitial + incomesSum - pendingAdvances;
+      const topeMensual = allocated;
+
+      // "si el monto del presupuesto del departamento es mayor al tope mensual lo 'disponible' es el tope mensual y si es menor al tope mensual lo 'disponible' es el presupuesto"
+      // We subtract egresos to find the remaining available portion for both cases.
+      let saldo = 0;
+      if (totalPresupuestoFondo > topeMensual) {
+        saldo = topeMensual - egresos;
+      } else {
+        saldo = totalPresupuestoFondo - egresos;
+      }
+      saldo = Math.max(0, saldo);
+
+      const percentageUsed = Math.round((egresos / allocated) * 100) || 0;
       return {
         ...d,
         egresos,
         saldo,
-        percentage
+        percentage: percentageUsed
       };
     });
-  }, [departments, renditions]);
+  }, [departments, renditions, bankTransactions, fundRequests]);
 
   // Combine static fallback and real fund requests for "Adelantos Pendientes"
   const pendingAdvancesLedger = React.useMemo(() => {
@@ -1409,11 +1509,82 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
     }, 450);
   };
 
-  // Simulated file upload callbacks
+  // Real Excel/File upload callback using XLSX
+  const processFile = (file: File) => {
+    setLoadedFileName(file.name);
+    setIsParsing(true);
+    setIntegrationSuccess(false);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const workbook = XLSX.read(bstr, { type: "binary" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to array of arrays
+        const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (json.length === 0) {
+          throw new Error("El archivo Excel está completamente vacío o sin formato.");
+        }
+
+        // Get headers and rows
+        const rawHeaders = json[0] || [];
+        const headers = rawHeaders.map((h: any) => String(h || "").trim());
+        const rawRows = json.slice(1).filter(r => r && r.length > 0 && r.some(c => c !== null && c !== undefined && c !== ""));
+
+        // Format row cells for visual rendering
+        const formattedRows = rawRows.map((row: any[]) => {
+          return row.map((cell: any) => {
+            if (cell === null || cell === undefined) return "";
+            if (typeof cell === "number") {
+              // format currency if numeric and likely money
+              if (headers.some((h: string) => h.toLowerCase().includes("monto") || h.toLowerCase().includes("saldo") || h.toLowerCase().includes("cantidad") || h.toLowerCase().includes("presupuesto") || h.toLowerCase().includes("inicial") || h.toLowerCase().includes("egreso") || h.toLowerCase().includes("tope"))) {
+                return `$${cell.toLocaleString("es-CL")}`;
+              }
+              return String(cell);
+            }
+            return String(cell);
+          });
+        });
+
+        setParsedData({
+          title: `Datos Extraídos: ${
+            selectedAcmsType === "tesoreria" ? "Movimientos de Tesorería" : 
+            selectedAcmsType === "departamento" ? "Presupuestos de Departamentos" : 
+            selectedAcmsType === "banco" ? "Cartola Bancaria" : 
+            selectedAcmsType === "balance" ? "Balance de Cuentas" : "Distribución de Ofrendas"
+          }`,
+          summary: `Éxito: Se extrajeron ${rawRows.length} registros de la hoja contable "${sheetName}".`,
+          headers: headers,
+          rows: formattedRows,
+          rawRows: rawRows // keeps original data typed values for direct integration
+        });
+        setIsParsing(false);
+      } catch (err: any) {
+        console.error(err);
+        alert("Error al cargar y procesar el archivo Excel: " + (err.message || err));
+        setIsParsing(false);
+        setLoadedFileName(null);
+        setParsedData(null);
+      }
+    };
+
+    reader.onerror = (err) => {
+      console.error(err);
+      alert("Error leyendo el archivo físico en el navegador.");
+      setIsParsing(false);
+    };
+
+    reader.readAsBinaryString(file);
+  };
+
   const handleAcmsFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      simulateParsing(files[0].name);
+      processFile(files[0]);
     }
   };
 
@@ -1429,29 +1600,197 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
     }, 1200);
   };
 
-  const handleSelectSimulatedTemplate = (type: "balance" | "banco" | "ofrendas") => {
+  const handleSelectSimulatedTemplate = (type: "balance" | "banco" | "ofrendas" | "tesoreria" | "departamento") => {
     setSelectedAcmsType(type);
     const mockFileNames = {
       balance: "ACMS_Balance_Comprobacion_IglesiaLocal_Mayo2026.xlsx",
       banco: "Cartola_BancoEstado_Auxiliar_Consolidada.csv",
-      ofrendas: "Plan_Distribucion_Ofrendas_AsociacionChilena.pdf"
+      ofrendas: "Plan_Distribucion_Ofrendas_AsociacionChilena.pdf",
+      tesoreria: "Plantilla_Movimientos_Tesoreria_Entradas_Salidas.xlsx",
+      departamento: "Plantilla_Presupuestos_Departamentos.xlsx"
     };
     simulateParsing(mockFileNames[type]);
   };
 
   const handleConfirmIntegration = () => {
     if (!parsedData) return;
-    
+
+    let importedCount = 0;
+
+    // Depend on selectedAcmsType, let's process and apply real updates!
+    if (selectedAcmsType === "tesoreria" || selectedAcmsType === "banco") {
+      const rows = parsedData.rawRows || [];
+      rows.forEach((row: any[]) => {
+        const rowObj: any = {};
+        parsedData.headers.forEach((h: string, idx: number) => {
+          const norm = h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          rowObj[norm] = row[idx];
+        });
+
+        const dateRaw = rowObj["fecha"] || new Date().toISOString().split("T")[0];
+        // Parse serial/excel dates if they come as numbers
+        let date = String(dateRaw);
+        if (/^\d{5}$/.test(date)) {
+          const excelEpoch = new Date(1899, 11, 30);
+          const parsedDays = parseInt(date, 10);
+          excelEpoch.setDate(excelEpoch.getDate() + parsedDays);
+          date = excelEpoch.toISOString().split("T")[0];
+        }
+
+        const typeInput = String(rowObj["tipo"] || "Ingreso").trim();
+        const type = (typeInput.toLowerCase().includes("gasto") || typeInput.toLowerCase().includes("egreso") || typeInput.toLowerCase().includes("salida") || typeInput.toLowerCase().includes("retiro") || typeInput.toLowerCase().includes("debito") || typeInput.toLowerCase().includes("egr") || typeInput.toLowerCase().includes("g")) ? "Gasto" : "Ingreso";
+        
+        let amount = Math.abs(parseFloat(String(rowObj["monto"] || rowObj["cantidad"] || rowObj["depositos (+)"] || rowObj["retiros (-)"] || "0").replace(/[^0-9.-]/g, ""))) || 0;
+        
+        // If amount is zero but depositos/retiros might be empty strings, solve it
+        if (amount === 0 && rowObj["depositos (+)"]) {
+          amount = Math.abs(parseFloat(String(rowObj["depositos (+)"]).replace(/[^0-9.-]/g, ""))) || 0;
+        }
+        if (amount === 0 && rowObj["retiros (-)"]) {
+          amount = Math.abs(parseFloat(String(rowObj["retiros (-)"]).replace(/[^0-9.-]/g, ""))) || 0;
+        }
+
+        const description = String(rowObj["descripcion"] || rowObj["detalle"] || rowObj["descripcion movimiento acms"] || "Movimiento importado").trim();
+        const category = String(rowObj["categoria"] || rowObj["fondo"] || "Administración").trim();
+
+        // Check if description or amount is empty, if is let's skip
+        if (!description || amount <= 0) return;
+
+        // Find bank account
+        const bankSearch = String(rowObj["banco"] || rowObj["cuenta"] || "Banco Estado Principal").toLowerCase().trim();
+        const matchedAccount = bankAccounts.find(ba => ba.id === bankSearch || ba.name.toLowerCase().includes(bankSearch)) || bankAccounts[0];
+        const bankId = matchedAccount ? matchedAccount.id : "ba-1";
+
+        const tx: BankTransaction = {
+          id: "bt-imp-" + Math.random().toString(36).substring(2, 9),
+          date,
+          type,
+          bankId,
+          amount,
+          description,
+          category
+        };
+
+        if (onAddBankTransaction) {
+          onAddBankTransaction(tx);
+        }
+
+        // Update bank balance
+        if (matchedAccount && onUpdateBankAccounts) {
+          const offset = type === "Ingreso" ? amount : -amount;
+          const updatedAccounts = bankAccounts.map(ba => ba.id === matchedAccount.id ? { ...ba, balance: Math.max(0, ba.balance + offset) } : ba);
+          onUpdateBankAccounts(updatedAccounts);
+        }
+        importedCount++;
+      });
+    } else if (selectedAcmsType === "departamento" || selectedAcmsType === "balance") {
+      const rows = parsedData.rawRows || [];
+      rows.forEach((row: any[]) => {
+        const rowObj: any = {};
+        parsedData.headers.forEach((h: string, idx: number) => {
+          const norm = h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          rowObj[norm] = row[idx];
+        });
+
+        // Try code and name
+        const code = String(rowObj["codigo"] || rowObj["codigo cuenta"] || rowObj["codigo departamento"] || "").trim().toUpperCase();
+        const name = String(rowObj["nombre"] || rowObj["nombre de cuenta / departamento"] || rowObj["nombre de fondo/cuenta"] || rowObj["departamento"] || "").trim();
+
+        if (!code && !name) return;
+
+        // Match first against code, then name
+        const dept = departments.find(d => {
+          if (code && d.code === code) return true;
+          if (name && d.name.toLowerCase().includes(name.toLowerCase())) return true;
+          return false;
+        });
+
+        if (dept && onUpdateDepartment) {
+          const budgetAllocated = Math.max(parseFloat(String(rowObj["tope"] || rowObj["presupuesto total"] || rowObj["presupuesto"] || rowObj["tope/presupuesto"] || rowObj["saldo final"] || dept.budgetAllocated).replace(/[^0-9.-]/g, "")) || dept.budgetAllocated, 1);
+          const budgetUsed = parseFloat(String(rowObj["egresos"] || rowObj["presupuesto usado"] || rowObj["usado"] || rowObj["usado/egresos"] || dept.budgetUsed).replace(/[^0-9.-]/g, "")) || dept.budgetUsed;
+          const initialBudget = parseFloat(String(rowObj["presupuesto inicial"] || rowObj["inicial"] || rowObj["saldo inicial"] || dept.initialBudget || budgetAllocated).replace(/[^0-9.-]/g, "")) || (dept.initialBudget || budgetAllocated);
+          
+          let assignedPercentageRaw = String(rowObj["porcentaje"] || rowObj["porcentaje asignado"] || dept.assignedPercentage || "10");
+          const assignedPercentage = parseFloat(assignedPercentageRaw.replace(/[^0-9.-]/g, "")) || dept.assignedPercentage;
+
+          const ratio = Math.round((budgetUsed / budgetAllocated) * 100);
+          const updatedDept = {
+            ...dept,
+            budgetAllocated,
+            budgetUsed,
+            initialBudget,
+            assignedPercentage,
+            percentageUsed: ratio
+          };
+          onUpdateDepartment(updatedDept);
+          importedCount++;
+        }
+      });
+    } else {
+      // ofrendas fallback
+      importedCount = parsedData.rawRows?.length || 0;
+    }
+
     const newFileLog = {
       id: "acms-" + Date.now().toString().substring(8),
       name: loadedFileName || `Inyeccion_ACMS_Contable.xlsx`,
       generatedBy: "Servicio Sincronizador ACMS",
       date: new Date().toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" }),
-      format: selectedAcmsType === "banco" ? ("EXCEL" as const) : ("PDF" as const)
+      format: "EXCEL" as const
     };
 
     setHistoricReportList(prev => [newFileLog, ...prev]);
     setIntegrationSuccess(true);
+  };
+
+  const handleDownloadTemplate = () => {
+    let headers: string[] = [];
+    let rows: any[][] = [];
+    let filename = "";
+
+    if (selectedAcmsType === "tesoreria") {
+      headers = ["Fecha", "Descripción", "Monto", "Tipo", "Fondo", "Cuenta"];
+      rows = [
+        ["2026-06-01", "Compra de Biblias para Escuela Sabática", 35000, "Gasto", "Escuela Sabática", "Banco Estado Principal"],
+        ["2026-06-02", "Ingreso Diezmos Sábado de Consagración", 650000, "Ingreso", "Diezmos", "Banco Estado Principal"],
+        ["2026-06-03", "Ajuste Caja Chica - Material Dorcas", 12400, "Gasto", "Ministerio de la Mujer", "Caja Chica Iglesia"]
+      ];
+      filename = "Plantilla_Movimientos_Tesoreria.xlsx";
+    } else if (selectedAcmsType === "departamento") {
+      headers = ["Código", "Departamento", "Inicial", "Tope", "Usado", "Porcentaje"];
+      rows = [
+        ["ADM", "Administración", 200000, 300000, 45000, 53],
+        ["JOV", "Ministerio Joven", 150000, 200000, 15000, 10],
+        ["INF", "Ministerio Infantil", 100000, 120000, 10000, 8]
+      ];
+      filename = "Plantilla_Presupuestos_Departamentos.xlsx";
+    } else if (selectedAcmsType === "banco") {
+      headers = ["Fecha", "Descripción", "Monto", "Tipo", "Cuenta", "Fondo"];
+      rows = [
+        ["2026-06-01", "Depósito Contribuciones Especiales", 145000, "Ingreso", "Banco Estado Principal", "Ofrendas"],
+        ["2026-06-04", "Pago Publicidad Campaña Evangelismo", 67000, "Gasto", "Banco Estado Principal", "Evangelismo"]
+      ];
+      filename = "Plantilla_Cartola_Banco.xlsx";
+    } else if (selectedAcmsType === "balance") {
+      headers = ["Código Cuenta", "Nombre de Fondo/Cuenta", "Saldo Inicial", "Ingresos", "Egresos", "Saldo Final"];
+      rows = [
+        ["1.1.1.01", "Gasto de Iglesia (53%)", 4200000, 2840000, 1120000, 5920000],
+        ["1.1.1.04", "Ministerio Joven (4%)", 950000, 480000, 320000, 1110000]
+      ];
+      filename = "Plantilla_Balance_Comprobacion.xlsx";
+    } else {
+      headers = ["Fondo Destinatario", "Porcentaje Asignado", "Ingresos Mes"];
+      rows = [
+        ["Gasto de Iglesia", 53.0, 5300000],
+        ["Evangelismo Local", 9.0, 900000]
+      ];
+      filename = "Plantilla_Distribucion_Ofrendas.xlsx";
+    }
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
+    XLSX.writeFile(wb, filename);
   };
 
   return (
@@ -1871,7 +2210,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                           </tr>
                         ))}
                         <tr className="bg-slate-50 font-black text-slate-900 border-t border-slate-200">
-                          <td colspan="3" className="px-5 py-4 uppercase text-slate-500 text-[10px]">Totales consolidados de caja local</td>
+                          <td colSpan={3} className="px-5 py-4 uppercase text-slate-500 text-[10px]">Totales consolidados de caja local</td>
                           <td className="px-5 py-4 text-right font-mono text-xs">
                             ${departmentLedger.reduce((sum, d) => sum + d.budgetAllocated, 0).toLocaleString("es-CL")}
                           </td>
@@ -2315,17 +2654,100 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                 <div className="space-y-4">
                   
                   {/* Select ACMS Document Type */}
-                  <div className="space-y-1.5 text-xs">
+                  <div className="space-y-1.5 text-xs text-left">
                     <label className="font-bold text-slate-500 uppercase tracking-widest block text-[10px]">Módulo de Sincronización DSA</label>
                     <select 
                       value={selectedAcmsType}
                       onChange={(e) => setSelectedAcmsType(e.target.value as any)}
                       className="w-full bg-white border border-slate-200 p-2.5 rounded-lg font-bold text-slate-800 cursor-pointer outline-none focus:ring-1 focus:ring-[#1552a6]"
                     >
-                      <option value="balance">B-01: Balance de Comprobación ACMS</option>
-                      <option value="banco">CB-04: Cartolas Conciliación Banco</option>
+                      <option value="tesoreria">T-01: Movimientos de Tesorería (Entradas y Salidas)</option>
+                      <option value="departamento">D-02: Movimientos por Departamento (Estados de Fondos)</option>
+                      <option value="banco">CB-04: Cartolas Conciliación Bancaria (por Cuenta)</option>
+                      <option value="balance">B-01: Balance de Comprobación General ACMS</option>
                       <option value="ofrendas">D-09: Distribución Auxiliar Ofrendas (Art. 6)</option>
                     </select>
+                  </div>
+
+                  {/* Excel Suggested Template Column guide & Download template button */}
+                  <div className="bg-[#f0f9ff] border border-blue-100 text-blue-950 p-4 rounded-xl space-y-3 text-left">
+                    <span className="font-sans font-black uppercase tracking-wider text-[9px] text-[#1552a6] block">Columnas requeridas (.xlsx)</span>
+                    
+                    {selectedAcmsType === "tesoreria" && (
+                      <div className="text-[11px] space-y-1 text-slate-650">
+                        <p className="font-semibold leading-normal">Ingrese un archivo con las siguientes columnas:</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li><strong>Fecha</strong> (ej: <code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">2026-06-01</code>)</li>
+                          <li><strong>Descripción</strong> (glosa o detalle descriptivo)</li>
+                          <li><strong>Monto</strong> (número absoluto de dinero)</li>
+                          <li><strong>Tipo</strong> (<code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">Ingreso</code> o <code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">Gasto</code>)</li>
+                          <li><strong>Fondo</strong> (el departamento asignado)</li>
+                          <li><strong>Cuenta</strong> (ej: <code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">Banco Estado Principal</code>)</li>
+                        </ul>
+                      </div>
+                    )}
+
+                    {selectedAcmsType === "departamento" && (
+                      <div className="text-[11px] space-y-1 text-slate-650">
+                        <p className="font-semibold leading-normal">Ingrese un archivo de saldos de departamento:</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li><strong>Código</strong> (ej: <code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">JOV</code>, <code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">ADM</code>)</li>
+                          <li><strong>Departamento</strong> (nombre exacto o parcial)</li>
+                          <li><strong>Inicial</strong> (monto de inicio de presupuesto)</li>
+                          <li><strong>Tope / Presupuesto</strong> (tope de gasto asignado)</li>
+                          <li><strong>Usado / Egresos</strong> (presupuesto ya ejecutado)</li>
+                          <li><strong>Porcentaje</strong> (porcentaje de distribución ofrendas)</li>
+                        </ul>
+                      </div>
+                    )}
+
+                    {selectedAcmsType === "banco" && (
+                      <div className="text-[11px] space-y-1 text-slate-650">
+                        <p className="font-semibold leading-normal">Cargue cartolas bancarias para la cuenta seleccionada:</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li><strong>Fecha</strong> (ej: <code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">2026-06-01</code>)</li>
+                          <li><strong>Descripción</strong> (ej: <code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">Transf. Recibida</code>)</li>
+                          <li><strong>Monto</strong> (monto de transacción)</li>
+                          <li><strong>Tipo</strong> (<code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">Ingreso</code> / <code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">Gasto</code>)</li>
+                          <li><strong>Cuenta</strong> (ej: <code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">Banco Estado Principal</code>)</li>
+                          <li><strong>Fondo</strong> (categoría o departamento)</li>
+                        </ul>
+                      </div>
+                    )}
+
+                    {selectedAcmsType === "balance" && (
+                      <div className="text-[11px] space-y-1 text-slate-650">
+                        <p className="font-semibold leading-normal">Cargue el Balance B-01 general de la DSA:</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li><strong>Código Cuenta</strong> (cuenta contable general)</li>
+                          <li><strong>Nombre de Fondo/Cuenta</strong> (ej: <code className="font-mono bg-blue-50 text-[#1552a6] px-1 rounded">Ministerio Joven</code>)</li>
+                          <li><strong>Saldo Inicial</strong></li>
+                          <li><strong>Ingresos</strong></li>
+                          <li><strong>Egresos</strong></li>
+                          <li><strong>Saldo Final</strong></li>
+                        </ul>
+                      </div>
+                    )}
+
+                    {selectedAcmsType === "ofrendas" && (
+                      <div className="text-[11px] space-y-1 text-slate-650">
+                        <p className="font-semibold leading-normal">Distribución Auxiliar de Ofrendas Planificado:</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li><strong>Fondo Destinatario</strong></li>
+                          <li><strong>Porcentaje Asignado</strong></li>
+                          <li><strong>Ingresos Mes</strong></li>
+                        </ul>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadTemplate}
+                      className="w-full bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-black py-2 px-3 border border-slate-200 rounded-lg shadow-sm flex items-center justify-center gap-1.5 cursor-pointer select-none transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#1552a6]" />
+                      Descargar Plantilla .xlsx Oficial
+                    </button>
                   </div>
 
                   {/* Format expected */}
@@ -2355,7 +2777,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                       e.preventDefault();
                       setDragActive(false);
                       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                        simulateParsing(e.dataTransfer.files[0].name);
+                        processFile(e.dataTransfer.files[0]);
                       }
                     }}
                     className={`border-4 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
@@ -2741,7 +3163,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                       </tr>
                     ))}
                     <tr className="bg-slate-50 font-black text-slate-900 border-t border-slate-200 select-none">
-                      <td colspan="5" className="px-5 py-4 uppercase text-slate-500 text-[10px]">Suma consolidada de caja de adelantos activos</td>
+                      <td colSpan={5} className="px-5 py-4 uppercase text-slate-500 text-[10px]">Suma consolidada de caja de adelantos activos</td>
                       <td className="px-5 py-4 text-right font-mono text-xs">
                         ${pendingAdvancesLedger.reduce((sum, a) => sum + a.monto, 0).toLocaleString("es-CL")}
                       </td>
@@ -2751,7 +3173,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                       <td className="px-5 py-4 text-right font-mono text-xs text-indigo-750 font-black">
                         ${pendingAdvancesLedger.reduce((sum, a) => sum + a.saldo, 0).toLocaleString("es-CL")}
                       </td>
-                      <td colspan="2" className="text-center">-</td>
+                      <td colSpan={2} className="text-center">-</td>
                     </tr>
                   </tbody>
                 </table>

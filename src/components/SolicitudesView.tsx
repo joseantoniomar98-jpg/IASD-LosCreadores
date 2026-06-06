@@ -4,11 +4,11 @@
  */
 
 import React, { useState } from "react";
-import { Department, FundRequest, User, Cargo } from "../types";
+import { Department, FundRequest, User, Cargo, BankTransaction } from "../types";
 import { 
   FileText, CheckCircle2, ChevronRight, HelpCircle, Bell, ArrowLeft, 
   Info, Send, AlertTriangle, Landmark, Eye, Check, X, ShieldAlert,
-  ArrowUpRight, ListCollapse, PlusCircle
+  ArrowUpRight, ListCollapse, PlusCircle, CreditCard
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -23,6 +23,7 @@ interface SolicitudesProps {
   cargos?: Cargo[];
   bankList?: string[];
   onSuccessRedirect?: () => void;
+  bankTransactions?: BankTransaction[];
 }
 
 export const SolicitudesView: React.FC<SolicitudesProps> = ({
@@ -45,7 +46,8 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
     "Banco Security",
     "Banco BICE"
   ],
-  onSuccessRedirect
+  onSuccessRedirect,
+  bankTransactions = []
 }) => {
   // Determine if the user is a global administrative officer/auditor
   const isGlobalManager = (currentUser?.roles.some(r => 
@@ -104,7 +106,46 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
   const selectedDept = departments.find(d => d.id === selectedDeptId);
   const currentDeptUsedReal = selectedDept ? selectedDept.budgetUsed : 0;
   const currentDeptAllocatedReal = selectedDept ? selectedDept.budgetAllocated : 1;
-  const availableBudgetReal = selectedDept ? (selectedDept.budgetAllocated - selectedDept.budgetUsed) : 0;
+
+  // Calculate dynamic available budget for selected department
+  const availableBudgetReal = React.useMemo(() => {
+    if (!selectedDept) return 0;
+    const departInitial = selectedDept.initialBudget !== undefined ? selectedDept.initialBudget : selectedDept.budgetAllocated;
+    
+    // Calculate department specific incomes
+    const percentage = selectedDept.assignedPercentage ?? 10;
+    let incomesSum = 0;
+    bankTransactions.forEach(tx => {
+      if (tx.type === "Ingreso") {
+        const matched = tx.category.toLowerCase().includes(selectedDept.name.toLowerCase()) ||
+                        tx.description.toLowerCase().includes(selectedDept.name.toLowerCase()) ||
+                        tx.category.toLowerCase().includes(selectedDept.category.toLowerCase());
+        if (matched) {
+          incomesSum += tx.amount;
+        } else if (tx.category.toLowerCase().includes("ofrenda") || tx.category.toLowerCase().includes("diezmo") || tx.category.toLowerCase().includes("generales") || tx.category.toLowerCase().includes("colecta")) {
+          incomesSum += Math.round(tx.amount * (percentage / 100));
+        }
+      }
+    });
+
+    // Calculate pending/outstanding advances
+    const pendingAdvances = fundRequests
+      .filter(r => r.department === selectedDept.name && r.status === "Aprobada" && r.cerrado !== true)
+      .reduce((sum, r) => sum + r.amount, 0);
+
+    const totalPresupuestoFondo = departInitial + incomesSum - pendingAdvances;
+    const topeMensual = selectedDept.budgetAllocated;
+
+    // "si el monto del presupuesto del departamento es mayor al tope mensual lo 'disponible' es el tope mensual y si es menor al tope mensual lo 'disponible' es el presupuesto"
+    // We subtract selectedDept.budgetUsed to find the remaining available portion for both cases.
+    let availableBudgetSim = 0;
+    if (totalPresupuestoFondo > topeMensual) {
+      availableBudgetSim = topeMensual - selectedDept.budgetUsed;
+    } else {
+      availableBudgetSim = totalPresupuestoFondo - selectedDept.budgetUsed;
+    }
+    return Math.max(0, availableBudgetSim);
+  }, [selectedDept, bankTransactions, fundRequests]);
 
   // Filter state for status tabs
   const [filterState, setFilterState] = useState<"todos" | "Pendiente" | "Aprobada" | "Observada" | "Rechazada">("todos");
@@ -570,25 +611,36 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
                 )}
 
                 {/* Additional department health context card */}
-                <div className="bg-white rounded-2xl border border-outline-variant/60 p-5 shadow-sm">
-                  <h3 className="font-sans text-xs font-bold text-primary mb-3 uppercase tracking-wider">Salud de Presupuesto del Fondo</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-xs font-semibold">
-                      <span className="text-on-surface-variant">Presupuesto Asignado</span>
-                      <span className="text-primary font-mono">$12,000,000</span>
+                {selectedDept && (
+                  <div className="bg-white rounded-2xl border border-outline-variant/60 p-5 shadow-sm">
+                    <h3 className="font-sans text-xs font-bold text-primary mb-3 uppercase tracking-wider">
+                      Salud de Presupuesto de {selectedDept.name}
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-on-surface-variant">Presupuesto Tope Mensual</span>
+                        <span className="text-primary font-mono">${selectedDept.budgetAllocated.toLocaleString("es-CL")}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-on-surface-variant">Presupuesto Ejecutado</span>
+                        <span className="text-primary font-mono">${selectedDept.budgetUsed.toLocaleString("es-CL")}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-on-surface-variant">Presupuesto Disponible real</span>
+                        <span className="text-[#1552a6] font-extrabold font-mono">${availableBudgetReal.toLocaleString("es-CL")}</span>
+                      </div>
+                      <div className="w-full bg-[#f1f4f7] h-2.5 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-emerald-500 h-full rounded-full transition-all" 
+                          style={{ width: `${Math.min(selectedDept.percentageUsed, 100)}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-[10px] text-on-tertiary-fixed-variant bg-slate-50 border border-slate-100 p-2 rounded-lg italic">
+                        * El fondo de {selectedDept.name} ha previsto un uso de {selectedDept.percentageUsed}% de su tope mensual de gasto. Actualmente cuenta con un presupuesto para girar de ${availableBudgetReal.toLocaleString("es-CL")}.
+                      </p>
                     </div>
-                    <div className="flex justify-between text-xs font-semibold">
-                      <span className="text-on-surface-variant">Ejecutado (Incluy. Solicitud)</span>
-                      <span className="text-primary font-mono">$8,450,000</span>
-                    </div>
-                    <div className="w-full bg-surface-container h-2.5 rounded-full overflow-hidden">
-                      <div className="bg-tertiary-fixed-dim h-full rounded-full transition-all" style={{ width: "70%" }}></div>
-                    </div>
-                    <p className="text-[10px] text-on-tertiary-fixed-variant bg-tertiary-fixed-dim/15 p-2 rounded-lg italic">
-                      * El Ministerio de Jóvenes se encuentra dentro de los márgenes previstos para el segundo trimestre.
-                    </p>
                   </div>
-                </div>
+                )}
 
               </div>
 
@@ -727,9 +779,30 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
 
               {/* Section 2: Transfer Destination Data */}
               <section className="space-y-6">
-                <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/30">
-                  <Landmark className="w-5 h-5 text-secondary shrink-0" />
-                  <h2 className="text-base font-black text-primary uppercase tracking-wider">Datos de Transferencia Bancaria</h2>
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-outline-variant/30 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Landmark className="w-5 h-5 text-secondary shrink-0" />
+                    <h2 className="text-base font-black text-primary uppercase tracking-wider">Datos de Transferencia Bancaria</h2>
+                  </div>
+                  {currentUser?.bankName && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBank(currentUser.bankName || "");
+                        setAccountType(currentUser.accountType || "Cuenta Corriente");
+                        setAccountNumber(currentUser.accountNumber || "");
+                        setRecipientRut(currentUser.rut || "");
+                        setRecipientName(currentUser.recipientName || currentUser.name || "");
+                        setRecipientEmail(currentUser.email || "");
+                        setRecipientType("director");
+                      }}
+                      className="text-[10px] font-black text-blue-750 hover:text-blue-900 flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-xl cursor-pointer select-none transition-all"
+                      title="Pre-cargar mis datos bancarios de perfil"
+                    >
+                      <CreditCard className="w-3.5 h-3.5 text-blue-650" />
+                      Cargar mis datos guardados
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

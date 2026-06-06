@@ -67,6 +67,11 @@ export interface User {
   avatarLetter: string;
   imageUrl?: string;
   miembroDeJunta?: boolean;
+  bankName?: string;
+  accountType?: string;
+  accountNumber?: string;
+  rut?: string;
+  recipientName?: string;
 }
 
 export interface Department {

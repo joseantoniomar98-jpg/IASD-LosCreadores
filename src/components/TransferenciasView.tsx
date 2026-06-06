@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Department, Transfer, User, Cargo } from "../types";
+import { Department, Transfer, User, Cargo, BankTransaction, FundRequest } from "../types";
 import { 
   Landmark, ArrowRight, HelpCircle, TrendingUp, History, Info, Send, 
   CheckCircle2, Sliders, ChevronDown, Check, X, AlertTriangle, Edit2, 
@@ -21,6 +21,8 @@ interface TransferenciasViewProps {
   mode?: "request" | "manage";
   cargos?: Cargo[];
   onUpdateTransferFields?: (id: string, fields: Partial<Transfer>) => void;
+  bankTransactions?: BankTransaction[];
+  fundRequests?: FundRequest[];
 }
 
 export const TransferenciasView: React.FC<TransferenciasViewProps> = ({
@@ -31,7 +33,9 @@ export const TransferenciasView: React.FC<TransferenciasViewProps> = ({
   currentUser,
   mode = "request",
   cargos = [],
-  onUpdateTransferFields
+  onUpdateTransferFields,
+  bankTransactions = [],
+  fundRequests = []
 }) => {
   // Determine if the user is a global administrative officer/auditor
   const isGlobalManager = (currentUser?.roles.some(r => 
@@ -45,16 +49,21 @@ export const TransferenciasView: React.FC<TransferenciasViewProps> = ({
     return matchedCargo?.permissions.includes("ver_todos_departamentos");
   }))) ?? true;
 
-  // Filter departments related to the user
-  const matchedDepts = isGlobalManager 
-    ? departments 
-    : departments.filter(d => currentUser?.departments.includes(d.name));
+  // Filter departments assigned to the user
+  const userAssignedDepts = departments.filter(d => 
+    currentUser?.departments.includes(d.name) || 
+    currentUser?.departments.includes(d.category) ||
+    currentUser?.departments.includes(d.code)
+  );
+
+  // If none explicitly match or they are a global manager, allow selecting from all departments as origin
+  const finalOriginDepts = (isGlobalManager || userAssignedDepts.length === 0) ? departments : userAssignedDepts;
 
   // Transfers to display
   const matchedTransfers = transfers;
 
   // Local Form state
-  const [originId, setOriginId] = useState(() => matchedDepts[0]?.id || "dep-1");
+  const [originId, setOriginId] = useState(() => finalOriginDepts[0]?.id || "dep-1");
   const [destinationId, setDestinationId] = useState("");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
@@ -78,21 +87,64 @@ export const TransferenciasView: React.FC<TransferenciasViewProps> = ({
   // Sync state if currentUser changes
   useEffect(() => {
     if (currentUser) {
-      const userDepts = isGlobalManager 
-        ? departments 
-        : departments.filter(d => currentUser.departments.includes(d.name));
-      if (userDepts.length > 0) {
-        setOriginId(userDepts[0].id);
+      const userDepts = departments.filter(d => 
+        currentUser.departments.includes(d.name) || 
+        currentUser.departments.includes(d.category) ||
+        currentUser.departments.includes(d.code)
+      );
+      const initialOriginList = (isGlobalManager || userDepts.length === 0) ? departments : userDepts;
+      if (initialOriginList.length > 0) {
+        setOriginId(initialOriginList[0].id);
       }
     }
-  }, [currentUser, departments]);
+  }, [currentUser, departments, isGlobalManager]);
 
   // Filter state
   const [filterState, setFilterState] = useState<string>("todos");
   
   // Find currently selected origin department to display its balance
   const selectedOrigin = departments.find(d => d.id === originId);
-  const budgetAvailable = selectedOrigin ? (selectedOrigin.budgetAllocated - selectedOrigin.budgetUsed) : 0;
+
+  const getDynamicAvailableBudget = (d: Department | undefined) => {
+    if (!d) return 0;
+    const departInitial = d.initialBudget !== undefined ? d.initialBudget : d.budgetAllocated;
+    
+    // Calculate department specific incomes
+    const percentage = d.assignedPercentage ?? 10;
+    let incomesSum = 0;
+    bankTransactions.forEach(tx => {
+      if (tx.type === "Ingreso") {
+        const matched = tx.category.toLowerCase().includes(d.name.toLowerCase()) ||
+                        tx.description.toLowerCase().includes(d.name.toLowerCase()) ||
+                        tx.category.toLowerCase().includes(d.category.toLowerCase());
+        if (matched) {
+          incomesSum += tx.amount;
+        } else if (tx.category.toLowerCase().includes("ofrenda") || tx.category.toLowerCase().includes("diezmo") || tx.category.toLowerCase().includes("generales") || tx.category.toLowerCase().includes("colecta")) {
+          incomesSum += Math.round(tx.amount * (percentage / 100));
+        }
+      }
+    });
+
+    // Calculate pending/outstanding advances
+    const pendingAdvances = fundRequests
+      .filter(r => r.department === d.name && r.status === "Aprobada" && r.cerrado !== true)
+      .reduce((sum, r) => sum + r.amount, 0);
+
+    const totalPresupuestoFondo = departInitial + incomesSum - pendingAdvances;
+    const topeMensual = d.budgetAllocated;
+
+    // "si el monto del presupuesto del departamento es mayor al tope mensual lo 'disponible' es el tope mensual y si es menor al tope mensual lo 'disponible' es el presupuesto"
+    // We subtract d.budgetUsed to find the remaining available portion for both cases.
+    let availableBudgetSim = 0;
+    if (totalPresupuestoFondo > topeMensual) {
+      availableBudgetSim = topeMensual - d.budgetUsed;
+    } else {
+      availableBudgetSim = totalPresupuestoFondo - d.budgetUsed;
+    }
+    return Math.max(0, availableBudgetSim);
+  };
+
+  const budgetAvailable = selectedOrigin ? getDynamicAvailableBudget(selectedOrigin) : 0;
 
   // Handle submit (Request or direct complete)
   const handleSubmit = (e: React.FormEvent, isDirectCompleted = false) => {
@@ -329,9 +381,14 @@ export const TransferenciasView: React.FC<TransferenciasViewProps> = ({
                       onChange={(e) => setOriginId(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-bold outline-none cursor-pointer focus:bg-white focus:ring-1 focus:ring-blue-600"
                     >
-                      {departments.map((d) => (
-                        <option key={d.id} value={d.id}>{d.name} (${(d.budgetAllocated - d.budgetUsed).toLocaleString("es-CL")})</option>
-                      ))}
+                      {finalOriginDepts.map((d) => {
+                        const realAvail = getDynamicAvailableBudget(d);
+                        return (
+                          <option key={d.id} value={d.id}>
+                            {d.name} (${realAvail.toLocaleString("es-CL")} disp.)
+                          </option>
+                        );
+                      })}
                     </select>
                     <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>

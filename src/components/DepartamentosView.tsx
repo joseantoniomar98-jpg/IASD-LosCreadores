@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from "react";
-import { Department, User, Cargo } from "../types";
+import { Department, User, Cargo, BankTransaction, FundRequest } from "../types";
 import { 
   FolderGit2, Plus, Search, DollarSign, ArrowUpRight, 
   Trash2, Edit3, Check, X, ShieldCheck, ChevronRight 
@@ -21,6 +21,8 @@ interface DepartamentosProps {
   cargos?: Cargo[];
   categories?: string[];
   categoryColors?: Record<string, string>;
+  bankTransactions?: BankTransaction[];
+  fundRequests?: FundRequest[];
 }
 
 export const DepartamentosView: React.FC<DepartamentosProps> = ({
@@ -32,7 +34,9 @@ export const DepartamentosView: React.FC<DepartamentosProps> = ({
   mode = "view",
   cargos = [],
   categories = ["Administración", "Sociedad de Jóvenes", "Cursos y Materiales", "Recursos y Proyectos", "Ahorros Cuenta A", "Escuela Sabática Pequeños", "Actividades de Aventureros"],
-  categoryColors = {}
+  categoryColors = {},
+  bankTransactions = [],
+  fundRequests = []
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -220,7 +224,7 @@ export const DepartamentosView: React.FC<DepartamentosProps> = ({
             <DollarSign className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[10px] text-on-surface-variant uppercase font-black tracking-wider">Presupuesto Asignado Total</p>
+            <p className="text-[10px] text-on-surface-variant uppercase font-black tracking-wider">Presupuesto Total Iglesia</p>
             <p className="text-2xl font-black text-primary font-mono mt-0.5">${totalAllocatedSum.toLocaleString("es-CL")}</p>
           </div>
         </div>
@@ -289,7 +293,46 @@ export const DepartamentosView: React.FC<DepartamentosProps> = ({
       {/* Grid rendering Cards list */}
       <section className="flex flex-col gap-4">
         {filteredDepts.map((d) => {
-          const availBudgetSim = d.budgetAllocated - d.budgetUsed;
+          const departInitial = d.initialBudget !== undefined ? d.initialBudget : d.budgetAllocated;
+          
+          // Calculate department specific incomes
+          const percentage = d.assignedPercentage ?? 10;
+          let incomesSum = 0;
+          bankTransactions.forEach(tx => {
+            if (tx.type === "Ingreso") {
+              const matched = tx.category.toLowerCase().includes(d.name.toLowerCase()) ||
+                              tx.description.toLowerCase().includes(d.name.toLowerCase()) ||
+                              tx.category.toLowerCase().includes(d.category.toLowerCase());
+              if (matched) {
+                incomesSum += tx.amount;
+              } else if (tx.category.toLowerCase().includes("ofrenda") || tx.category.toLowerCase().includes("diezmo") || tx.category.toLowerCase().includes("generales") || tx.category.toLowerCase().includes("colecta")) {
+                incomesSum += Math.round(tx.amount * (percentage / 100));
+              }
+            }
+          });
+
+          // Calculate department outstanding (pending) advances (fondos por rendir)
+          const pendingAdvances = fundRequests
+            .filter(r => r.department === d.name && r.status === "Aprobada" && r.cerrado !== true)
+            .reduce((sum, r) => sum + r.amount, 0);
+
+          // Total fund budget of the department (Presupuesto inicial + Ingresos - Adelantos pendientes)
+          const totalPresupuestoFondo = departInitial + incomesSum - pendingAdvances;
+          const topeMensual = d.budgetAllocated;
+
+          // Dynamic budget of the fund according to incomes, expenses, and pending advances
+          const dynamicFundBudget = departInitial + incomesSum - d.budgetUsed - pendingAdvances;
+
+          // "si el monto del presupuesto del departamento es mayor al tope mensual lo 'disponible' es el tope mensual y si es menor al tope mensual lo 'disponible' es el presupuesto"
+          // We subtract d.budgetUsed to find the remaining available portion for both cases.
+          let availBudgetSim = 0;
+          if (totalPresupuestoFondo > topeMensual) {
+            availBudgetSim = topeMensual - d.budgetUsed;
+          } else {
+            availBudgetSim = totalPresupuestoFondo - d.budgetUsed;
+          }
+          availBudgetSim = Math.max(0, availBudgetSim);
+
           const deptColor = categoryColors[d.category] || "#2563eb";
           
           return (
@@ -328,14 +371,18 @@ export const DepartamentosView: React.FC<DepartamentosProps> = ({
                 </div>
                 
                 {/* Additional Attributes Grid */}
-                <div className="flex gap-4 text-xs text-on-surface-variant font-medium select-none">
+                <div className="flex flex-wrap gap-4 text-xs text-on-surface-variant font-medium select-none">
                   <div>
                     <span className="text-[9px] uppercase font-bold text-outline block">Porcentaje Asig.</span>
                     <span className="font-bold text-primary font-mono">{d.assignedPercentage ?? 10}%</span>
                   </div>
                   <div className="border-l border-outline-variant/30 pl-4">
                     <span className="text-[9px] uppercase font-bold text-outline block">Presupuesto Inicial</span>
-                    <span className="font-bold text-primary font-mono">${(d.initialBudget ?? d.budgetAllocated).toLocaleString("es-CL")}</span>
+                    <span className="font-bold text-primary font-mono">${departInitial.toLocaleString("es-CL")}</span>
+                  </div>
+                  <div className="border-l border-outline-variant/30 pl-4">
+                    <span className="text-[9px] uppercase font-bold text-outline block" title="Suma de Presupuesto Inicial + Ingresos - Egresos - Fondos por Rendir">Presupuesto del Fondo</span>
+                    <span className="font-bold text-[#1552a6] font-mono">${dynamicFundBudget.toLocaleString("es-CL")}</span>
                   </div>
                 </div>
               </div>

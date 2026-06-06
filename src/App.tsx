@@ -1248,6 +1248,8 @@ export default function App() {
               cargos={cargos}
               categories={categories}
               categoryColors={categoryColors}
+              bankTransactions={bankTransactions}
+              fundRequests={fundRequests}
             />
           )}
 
@@ -1261,6 +1263,8 @@ export default function App() {
               mode="request"
               cargos={cargos}
               onUpdateTransferFields={handleUpdateTransferFields}
+              bankTransactions={bankTransactions}
+              fundRequests={fundRequests}
             />
           )}
 
@@ -1274,6 +1278,8 @@ export default function App() {
               mode="manage"
               cargos={cargos}
               onUpdateTransferFields={handleUpdateTransferFields}
+              bankTransactions={bankTransactions}
+              fundRequests={fundRequests}
             />
           )}
 
@@ -1284,6 +1290,12 @@ export default function App() {
               renditions={renditions}
               bankTransactions={bankTransactions}
               boardActas={boardActas}
+              bankAccounts={bankAccounts}
+              onUpdateBankAccounts={handleUpdateBankAccounts}
+              onAddBankTransaction={handleAddBankTransaction}
+              onAddTransfer={handleAddTransfer}
+              onUpdateDepartment={handleUpdateDepartment}
+              onUpdateDeptBalance={handleUpdateDeptBalance}
             />
           )}
 
@@ -1308,6 +1320,7 @@ export default function App() {
               mode="resumen"
               cargos={cargos}
               bankList={bankList}
+              bankTransactions={bankTransactions}
             />
           )}
 
@@ -1321,6 +1334,7 @@ export default function App() {
               mode="gestion"
               cargos={cargos}
               bankList={bankList}
+              bankTransactions={bankTransactions}
             />
           )}
 
@@ -1335,6 +1349,7 @@ export default function App() {
               cargos={cargos}
               bankList={bankList}
               onSuccessRedirect={() => setActiveTab(Tab.TES_RESUMEN_FONDOS)}
+              bankTransactions={bankTransactions}
             />
           )}
 
@@ -1633,6 +1648,8 @@ export default function App() {
               cargos={cargos}
               categories={categories}
               categoryColors={categoryColors}
+              bankTransactions={bankTransactions}
+              fundRequests={fundRequests}
             />
           )}
 

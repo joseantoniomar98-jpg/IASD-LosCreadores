@@ -49,6 +49,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     r.toLowerCase().includes("anciano")
   );
 
+  // Check if user is explicitly authorized to see financial balances (Tesorero, Tesoreros Asistentes, Secretaria, Primer Anciano, Pastor)
+  const hasAuthorizedRoleForBalances = currentUser.roles.some(r => {
+    const roleLower = r.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return roleLower.includes("pastor") ||
+           roleLower.includes("secretar") || // secretaria, secretario
+           roleLower.includes("anciano") || // primer anciano, anciano
+           roleLower.includes("asistente") || // tesorero asistente, asistente
+           (roleLower.includes("tesorero") && !roleLower.includes("departamento") && !roleLower.includes("dept") && !roleLower.includes("dpto"));
+  });
+
+  // Check if the user is a director or department treasurer (should not see financial balances unless authorized above)
+  const isDirectorOrDeptTreasurer = currentUser.roles.some(r => {
+    const roleLower = r.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return roleLower === "director" || 
+           roleLower.includes("director de departamento") ||
+           roleLower === "tesorero departamento" || 
+           roleLower === "tesorero de departamento" ||
+           roleLower.includes("tesorero dept");
+  });
+
+  const showSaldosFinancieros = hasAuthorizedRoleForBalances || !isDirectorOrDeptTreasurer;
+
   // Compute default selected option for chart
   const getDefaultChartFilter = () => {
     if (isGlobalRole) return "general";
@@ -234,6 +256,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         const balanceFalabella = getBankBalance("ba-2", 3000684);
         const cajaFijaSum = balanceItau + balanceFalabella;
 
+        // Sum of all department budgets (total budget of the church)
+        const totalPresupuestoIglesia = departments.reduce((acc, d) => acc + d.budgetAllocated, 0);
+
+        // Sum of both bank accounts
+        const totalBancos = balanceItau + balanceFalabella;
+
         // Sum of unpaid expense renditions ("Gastos a Pagar")
         const gastosAPagarSum = renditions
           .filter(r => r.pagada !== true)
@@ -364,61 +392,72 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         return (
           <>
             {/* SUBTITLE: Saldos (Account Cards) */}
-            <div>
-              <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest block mb-3 pl-1 select-none font-sans">
-                Saldos Financieros
-              </h3>
+            {showSaldosFinancieros && (
+              <div>
+                <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest block mb-3 pl-1 select-none font-sans">
+                  Saldos Financieros
+                </h3>
 
-              {/* Grid Row of 5 Physical Accounts, exact replicas */}
-              <section className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                
-                {/* Card 1: Caja Fija */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-[#1552a6]/25 transition-all">
-                  <h5 className="text-[18px] font-black text-slate-800 tracking-tight font-sans">
-                    ${cajaFijaSum.toLocaleString("es-CL")}
-                  </h5>
-                  <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Caja Fija</span>
-                  <span className="absolute bottom-2.5 right-2.5 bg-emerald-500 text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none">CLP</span>
-                </div>
+                {/* Grid Row of 6 Physical Accounts, highly responsive */}
+                <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+                  
+                  {/* Card 1: Fondos de Tesorería */}
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-[#1552a6]/25 transition-all">
+                    <h5 className="text-[18px] font-black text-slate-800 tracking-tight font-sans">
+                      ${totalPresupuestoIglesia.toLocaleString("es-CL")}
+                    </h5>
+                    <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Fondos de Tesorería</span>
+                    <span className="absolute bottom-2.5 right-2.5 bg-[#1552a6] text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none">CLP</span>
+                  </div>
 
-                {/* Card 2: Banco Itau */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-[#1552a6]/25 transition-all">
-                  <h5 className="text-[18px] font-black text-slate-800 tracking-tight font-sans">
-                    ${balanceItau.toLocaleString("es-CL")}
-                  </h5>
-                  <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Banco Itaú</span>
-                  <span className="absolute bottom-2.5 right-2.5 bg-emerald-500 text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none">CLP</span>
-                </div>
+                  {/* Card 2: Fondos Bancos */}
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-[#1552a6]/25 transition-all">
+                    <h5 className="text-[18px] font-black text-[#1552a6] tracking-tight font-sans">
+                      ${totalBancos.toLocaleString("es-CL")}
+                    </h5>
+                    <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Fondos Bancos</span>
+                    <span className="absolute bottom-2.5 right-2.5 bg-emerald-500 text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none font-mono">OK</span>
+                  </div>
 
-                {/* Card 3: Banco Falabella */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-[#1552a6]/25 transition-all">
-                  <h5 className="text-[18px] font-black text-slate-800 tracking-tight font-sans">
-                    ${balanceFalabella.toLocaleString("es-CL")}
-                  </h5>
-                  <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Banco Falabella</span>
-                  <span className="absolute bottom-2.5 right-2.5 bg-emerald-500 text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none">CLP</span>
-                </div>
+                  {/* Card 3: Banco Itau */}
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-[#1552a6]/25 transition-all">
+                    <h5 className="text-[18px] font-black text-slate-800 tracking-tight font-sans">
+                      ${balanceItau.toLocaleString("es-CL")}
+                    </h5>
+                    <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Banco Itaú</span>
+                    <span className="absolute bottom-2.5 right-2.5 bg-slate-100 text-slate-600 font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none">CLP</span>
+                  </div>
 
-                {/* Card 4: Gastos a Pagar */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-red-200 bg-red-50/10 transition-all">
-                  <h5 className="text-[18px] font-black text-red-650 tracking-tight font-sans">
-                    ${gastosAPagarSum.toLocaleString("es-CL")}
-                  </h5>
-                  <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Gastos a Pagar</span>
-                  <span className="absolute bottom-2.5 right-2.5 bg-rose-500 text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none">CLP</span>
-                </div>
+                  {/* Card 4: Banco Falabella */}
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-[#1552a6]/25 transition-all">
+                    <h5 className="text-[18px] font-black text-slate-800 tracking-tight font-sans">
+                      ${balanceFalabella.toLocaleString("es-CL")}
+                    </h5>
+                    <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Banco Falabella</span>
+                    <span className="absolute bottom-2.5 right-2.5 bg-slate-100 text-slate-600 font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none">CLP</span>
+                  </div>
 
-                {/* Card 5: Fondos por rendir */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-blue-200 bg-blue-50/10 transition-all">
-                  <h5 className="text-[18px] font-black text-[#1552a6] tracking-tight font-sans">
-                    ${fondosPorRendirSum.toLocaleString("es-CL")}
-                  </h5>
-                  <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Fondos por rendir</span>
-                  <span className="absolute bottom-2.5 right-2.5 bg-[#1552a6] text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none">CLP</span>
-                </div>
+                  {/* Card 5: Gastos a Pagar */}
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-red-200 bg-red-50/10 transition-all">
+                    <h5 className="text-[18px] font-black text-red-650 tracking-tight font-sans">
+                      ${gastosAPagarSum.toLocaleString("es-CL")}
+                    </h5>
+                    <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Gastos a Pagar</span>
+                    <span className="absolute bottom-2.5 right-2.5 bg-rose-500 text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none">CLP</span>
+                  </div>
 
-              </section>
-            </div>
+                  {/* Card 6: Fondos por rendir */}
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-[110px] relative overflow-hidden hover:border-blue-200 bg-blue-50/10 transition-all">
+                    <h5 className="text-[18px] font-black text-[#1552a6] tracking-tight font-sans">
+                      ${fondosPorRendirSum.toLocaleString("es-CL")}
+                    </h5>
+                    <span className="text-[10px] text-slate-500 font-extrabold tracking-tight uppercase leading-tight line-clamp-2">Fondos por rendir</span>
+                    <span className="absolute bottom-2.5 right-2.5 bg-[#4285f4] text-white font-black px-1.5 py-0.5 rounded text-[8px] tracking-wide uppercase select-none">CLP</span>
+                  </div>
+
+                </section>
+              </div>
+            )}
 
             {/* 5. Charts and Ledger consistencies row */}
             <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
