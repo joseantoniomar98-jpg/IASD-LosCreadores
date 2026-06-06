@@ -70,22 +70,18 @@ export default function App() {
   const [users, setUsers] = useState<User[]>(USERS_SEED);
   const [usersLoadedFromDB, setUsersLoadedFromDB] = useState(false);
 
-  // Persist session changes in localStorage automatically whenever auth state shifts
-  useEffect(() => {
-    localStorage.setItem("iasd_isLogged", String(isLogged));
-    if (currentUser) {
-      localStorage.setItem("iasd_currentUser", JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem("iasd_currentUser");
-    }
-  }, [isLogged, currentUser]);
-
   // Listen for Firebase Auth changes to preserve Google login sessions
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser && firebaseUser.email) {
         const matched = users.find(u => u.email.toLowerCase() === firebaseUser.email?.toLowerCase());
         if (matched) {
+          try {
+            localStorage.setItem("iasd_isLogged", "true");
+            localStorage.setItem("iasd_currentUser", JSON.stringify(matched));
+          } catch (e) {
+            console.error(e);
+          }
           setIsLogged(true);
           setCurrentUser(matched);
         }
@@ -105,6 +101,11 @@ export default function App() {
         if (hasChanged) {
           console.log("Syncing currentUser with Firestore database updates:", dbUser.name);
           setCurrentUser(dbUser);
+          try {
+            localStorage.setItem("iasd_currentUser", JSON.stringify(dbUser));
+          } catch (e) {
+            console.error(e);
+          }
         }
       }
     }
@@ -577,6 +578,12 @@ export default function App() {
 
   // Login handler
   const handleLogin = (authenticatedUser: User) => {
+    try {
+      localStorage.setItem("iasd_isLogged", "true");
+      localStorage.setItem("iasd_currentUser", JSON.stringify(authenticatedUser));
+    } catch (e) {
+      console.error("Failed to save login session", e);
+    }
     setCurrentUser(authenticatedUser);
     setIsLogged(true);
     setActiveTab(Tab.DASHBOARD);
@@ -584,10 +591,14 @@ export default function App() {
 
   // Logout
   const handleLogout = () => {
+    try {
+      localStorage.removeItem("iasd_isLogged");
+      localStorage.removeItem("iasd_currentUser");
+    } catch (e) {
+      console.error("Failed to clear login session", e);
+    }
     setIsLogged(false);
     setActiveTab(Tab.LOGIN);
-    localStorage.removeItem("iasd_isLogged");
-    localStorage.removeItem("iasd_currentUser");
   };
 
   // Add mutual transfers

@@ -7,8 +7,23 @@ provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
 provider.addScope('https://www.googleapis.com/auth/gmail.send');
 
 let isSigningIn = false;
-let cachedAccessToken: string | null = null;
-let googleUserProfile: { name: string; email: string; picture?: string } | null = null;
+
+let cachedAccessToken: string | null = (() => {
+  try {
+    return localStorage.getItem("iasd_googleAccessToken");
+  } catch (e) {
+    return null;
+  }
+})();
+
+let googleUserProfile: { name: string; email: string; picture?: string } | null = (() => {
+  try {
+    const saved = localStorage.getItem("iasd_googleUserProfile");
+    return saved ? JSON.parse(saved) : null;
+  } catch (e) {
+    return null;
+  }
+})();
 
 // Initialize auth listener
 export const initGoogleAuth = (
@@ -21,11 +36,18 @@ export const initGoogleAuth = (
         if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
       } else if (!isSigningIn) {
         cachedAccessToken = null;
+        try {
+          localStorage.removeItem("iasd_googleAccessToken");
+        } catch (e) {}
         if (onAuthFailure) onAuthFailure();
       }
     } else {
       cachedAccessToken = null;
       googleUserProfile = null;
+      try {
+        localStorage.removeItem("iasd_googleAccessToken");
+        localStorage.removeItem("iasd_googleUserProfile");
+      } catch (e) {}
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -41,6 +63,11 @@ export const signInWithGoogle = async (): Promise<{ user: User; accessToken: str
       throw new Error('No se pudo obtener el token de acceso de Google OAuth.');
     }
     cachedAccessToken = credential.accessToken;
+    try {
+      localStorage.setItem("iasd_googleAccessToken", cachedAccessToken);
+    } catch (e) {
+      console.error("Error saving Google access token", e);
+    }
     
     // Fetch google profile details
     try {
@@ -49,6 +76,11 @@ export const signInWithGoogle = async (): Promise<{ user: User; accessToken: str
       });
       if (profileRes.ok) {
         googleUserProfile = await profileRes.json();
+        try {
+          localStorage.setItem("iasd_googleUserProfile", JSON.stringify(googleUserProfile));
+        } catch (e) {
+          console.error("Error saving Google user profile", e);
+        }
       }
     } catch (e) {
       console.error('Error fetching Google User Info:', e);
@@ -78,6 +110,10 @@ export const logoutGoogle = async () => {
   await auth.signOut();
   cachedAccessToken = null;
   googleUserProfile = null;
+  try {
+    localStorage.removeItem("iasd_googleAccessToken");
+    localStorage.removeItem("iasd_googleUserProfile");
+  } catch (e) {}
 };
 
 // --- GMAIL API FUNCTIONS ---
