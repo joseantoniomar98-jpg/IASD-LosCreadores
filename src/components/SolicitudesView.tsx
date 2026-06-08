@@ -197,13 +197,13 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
   };
   
   const selectedDept = departments.find(d => d.id === selectedDeptId);
-  const currentDeptUsedReal = selectedDept ? selectedDept.budgetUsed : 0;
-  const currentDeptAllocatedReal = selectedDept ? selectedDept.budgetAllocated : 1;
+  const currentDeptUsedReal = selectedDept ? (selectedDept.budgetUsed ?? 0) : 0;
+  const currentDeptAllocatedReal = selectedDept ? (selectedDept.budgetAllocated ?? 1) : 1;
 
   // Calculate dynamic available budget for selected department
   const availableBudgetReal = React.useMemo(() => {
     if (!selectedDept) return 0;
-    const departInitial = selectedDept.initialBudget !== undefined ? selectedDept.initialBudget : selectedDept.budgetAllocated;
+    const departInitial = selectedDept.initialBudget !== undefined ? selectedDept.initialBudget : (selectedDept.budgetAllocated ?? 0);
     
     // Calculate department specific incomes
     const percentage = selectedDept.assignedPercentage ?? 10;
@@ -214,9 +214,9 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
                         tx.description.toLowerCase().includes(selectedDept.name.toLowerCase()) ||
                         tx.category.toLowerCase().includes(selectedDept.category.toLowerCase());
         if (matched) {
-          incomesSum += tx.amount;
+          incomesSum += (tx.amount ?? 0);
         } else if (tx.category.toLowerCase().includes("ofrenda") || tx.category.toLowerCase().includes("diezmo") || tx.category.toLowerCase().includes("generales") || tx.category.toLowerCase().includes("colecta")) {
-          incomesSum += Math.round(tx.amount * (percentage / 100));
+          incomesSum += Math.round((tx.amount ?? 0) * (percentage / 100));
         }
       }
     });
@@ -224,18 +224,19 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
     // Calculate pending/outstanding advances
     const pendingAdvances = fundRequests
       .filter(r => r.department === selectedDept.name && r.status === "Aprobada" && r.cerrado !== true)
-      .reduce((sum, r) => sum + r.amount, 0);
+      .reduce((sum, r) => sum + (r.amount ?? 0), 0);
 
     const totalPresupuestoFondo = departInitial + incomesSum - pendingAdvances;
-    const topeMensual = selectedDept.budgetAllocated;
+    const topeMensual = selectedDept.budgetAllocated ?? 0;
 
     // "si el monto del presupuesto del departamento es mayor al tope mensual lo 'disponible' es el tope mensual y si es menor al tope mensual lo 'disponible' es el presupuesto"
     // We subtract selectedDept.budgetUsed to find the remaining available portion for both cases.
     let availableBudgetSim = 0;
+    const usedBudget = selectedDept.budgetUsed ?? 0;
     if (totalPresupuestoFondo > topeMensual) {
-      availableBudgetSim = topeMensual - selectedDept.budgetUsed;
+      availableBudgetSim = topeMensual - usedBudget;
     } else {
-      availableBudgetSim = totalPresupuestoFondo - selectedDept.budgetUsed;
+      availableBudgetSim = totalPresupuestoFondo - usedBudget;
     }
     return Math.max(0, availableBudgetSim);
   }, [selectedDept, bankTransactions, fundRequests]);
@@ -733,11 +734,11 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
                     <div className="space-y-3">
                       <div className="flex justify-between text-xs font-semibold">
                         <span className="text-on-surface-variant">Presupuesto Tope Mensual</span>
-                        <span className="text-primary font-mono">${selectedDept.budgetAllocated.toLocaleString("es-CL")}</span>
+                        <span className="text-primary font-mono">${(selectedDept.budgetAllocated ?? 0).toLocaleString("es-CL")}</span>
                       </div>
                       <div className="flex justify-between text-xs font-semibold">
                         <span className="text-on-surface-variant">Presupuesto Ejecutado</span>
-                        <span className="text-primary font-mono">${selectedDept.budgetUsed.toLocaleString("es-CL")}</span>
+                        <span className="text-primary font-mono">${(selectedDept.budgetUsed ?? 0).toLocaleString("es-CL")}</span>
                       </div>
                       <div className="flex justify-between text-xs font-semibold">
                         <span className="text-on-surface-variant">Presupuesto Disponible real</span>
@@ -1195,7 +1196,7 @@ export const SolicitudesView: React.FC<SolicitudesProps> = ({
 
                   {/* Board vote approval reference */}
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Voto ACMS / Junta Directiva</label>
+                    <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Voto de Junta Directiva</label>
                     <input 
                       type="text" 
                       value={existingBoardVote}

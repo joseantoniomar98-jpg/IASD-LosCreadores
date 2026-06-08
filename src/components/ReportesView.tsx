@@ -117,7 +117,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
 
   // Archive list of files generated
   const [historicReportList, setHistoricReportList] = useState([
-    { id: "rep-01", name: "Balance_Mayo_2026_Verificado_ACMS.xlsx", generatedBy: "Tesorero Demo", date: "28 May, 2026", format: "EXCEL" },
+    { id: "rep-01", name: "Balance_Mayo_2026_Verificado_Oficial.xlsx", generatedBy: "Tesorero Demo", date: "28 May, 2026", format: "EXCEL" },
     { id: "rep-02", name: "Reporte_Folleto_Adelantos_Pendientes.pdf", generatedBy: "Tesorero Demo", date: "20 May, 2026", format: "PDF" },
     { id: "rep-03", name: "Distribucion_Ofrendas_Art6_Abril.xlsx", generatedBy: "Tesorero Demo", date: "28 Abr, 2026", format: "EXCEL" }
   ]);
@@ -125,7 +125,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
   // Simulated parsed ACMS payloads
   const SIMULATED_ACMS_PAYLOADS: Record<string, any> = {
     balance: {
-      title: "Balance de Comprobación Consolidado ACMS - Mayo/Junio 2026",
+      title: "Balance de Comprobación Consolidado Oficial - Mayo/Junio 2026",
       summary: "Saldos auditados por la tesorería de la Asociación Chilena Centro",
       headers: ["Código Cuenta", "Nombre de Fondo/Cuenta", "Saldo Inicial", "Ingresos", "Egresos", "Saldo Final"],
       rows: [
@@ -145,9 +145,9 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
       ]
     },
     banco: {
-      title: "Cartola de Conciliación Bancaria ACMS (Banco Estado Principal)",
+      title: "Cartola de Conciliación Bancaria Central (Banco Estado Principal)",
       summary: "Sincronización mensual de depósitos y débitos indexados",
-      headers: ["Fecha Cartola", "Descripción Movimiento ACMS", "Código Ref", "Depósitos (+)", "Retiros (-)", "Estado Conciliación"],
+      headers: ["Fecha Cartola", "Descripción Movimiento Central", "Código Ref", "Depósitos (+)", "Retiros (-)", "Estado Conciliación"],
       rows: [
         ["2026-06-01", "Depósito Ofrendas Generales Mayo 31", "REF-BAN-2942", "$3,542,000", "$0", "Conciliado OK"],
         ["2026-06-03", "Cargo Transferencia Voto V-2026-05-18", "REF-REQ-0391", "$0", "$2,400,000", "Conciliado OK"],
@@ -587,7 +587,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
 
   const exportDepartmentalPDF = () => {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    drawPageHeader(doc, "Resumen Contable por Departamentos (ACMS)", "Saldos y ejecución presupuestaria del periodo");
+    drawPageHeader(doc, "Resumen Contable por Departamentos (Planilla Central)", "Saldos y ejecución presupuestaria del periodo");
     
     const headers = ["Código", "Departamento", "Responsable", "Asignado", "Egresos", "Disponible"];
     const colWidths = [18, 55, 42, 25, 25, 25];
@@ -1409,7 +1409,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
           </tr>
           <tr>
             <td><strong>CONTABLE OFICIAL:</strong> Tesorero Demo</td>
-            <td><strong>INTEGRADO CON ACMS:</strong> SÍ (Saldos Digitales Sincronizados)</td>
+            <td><strong>INTEGRADO CON PLANILLA CENTRAL:</strong> SÍ (Saldos Digitales Sincronizados)</td>
           </tr>
         </table>
       </div>
@@ -1802,7 +1802,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-bold uppercase tracking-wider">
             <span>PORTAL DE INFORMES</span>
             <span>/</span>
-            <span className="text-[#1552a6] font-extrabold font-sans">CONTABILIDAD ACMS</span>
+            <span className="text-[#1552a6] font-extrabold font-sans">CONTABILIDAD OFICIAL</span>
           </div>
           <h1 className="text-xl font-black text-slate-800 font-sans mt-0.5">Informes Financieros</h1>
         </div>
@@ -1832,7 +1832,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
             }`}
           >
             <Upload className="w-3.5 h-3.5 text-emerald-600" />
-            Sincronizar ACMS
+            Sincronizar Planilla
           </button>
 
           <button 
@@ -1894,7 +1894,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                     : "border-transparent text-slate-400 hover:text-slate-600"
                 }`}
               >
-                Resumen por Departamento (Saldos ACMS)
+                Resumen por Departamento (Saldos Oficiales)
               </button>
               <button
                 onClick={() => setSubReportTab("mensual")}
@@ -1904,7 +1904,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                     : "border-transparent text-slate-400 hover:text-slate-600"
                 }`}
               >
-                Resumen Mensual Oficial (PDF/ACMS)
+                Resumen Mensual Oficial (PDF/Excel)
               </button>
             </div>
 
@@ -1916,7 +1916,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                     <h3 className="text-sm font-black text-[#1552a6] uppercase tracking-wide font-sans">
                       Consultar Libre de Caja local
                     </h3>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest bg-slate-50 px-2 py-0.5 rounded border border-slate-100">Cotejado ACMS</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest bg-slate-50 px-2 py-0.5 rounded border border-slate-100">Sincronizado</span>
                   </div>
 
                   <form onSubmit={handleConsultar} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -2067,7 +2067,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                             <th className="px-5 py-3">Concepto/Descripción de Gasto u Ofrenda</th>
                             <th className="px-5 py-3 text-center">Tipo</th>
                             <th className="px-5 py-3 text-right">Monto CLP</th>
-                            <th className="px-5 py-3 text-center">Estado ACMS</th>
+                            <th className="px-5 py-3 text-center">Estado Planilla</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-[11px] font-bold text-slate-700">
@@ -2239,7 +2239,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none">
                     <div>
                       <h3 className="text-sm font-black text-[#1552a6] uppercase tracking-wide font-sans flex items-center gap-1">
-                        Resumen Contable Mensual Oficial (ACMS)
+                        Resumen Contable Mensual Oficial (Caja Mayor)
                       </h3>
                       <p className="text-[11px] text-slate-500 mt-0.5">Sigue con fidelidad absoluta el diseño y los rubros descritos en el resumen mensual corporativo oficial de la DSA</p>
                     </div>
@@ -2346,7 +2346,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                       <p className="text-slate-500 font-bold uppercase block text-[8px] tracking-wider">Período Fiscal</p>
                       <p className="font-extrabold text-slate-800 text-xs">Mayo 2026</p>
                       <p className="text-slate-500">Moneda: Peso Chileno ($, CLP)</p>
-                      <p className="text-slate-500 text-emerald-600 font-bold uppercase tracking-wider flex items-center justify-end gap-1 text-[9px] mt-0.5"><Check className="w-3.5 h-3.5 stroke-[3] text-emerald-650" /> Conciliado contra ACMS</p>
+                      <p className="text-slate-500 text-emerald-600 font-bold uppercase tracking-wider flex items-center justify-end gap-1 text-[9px] mt-0.5"><Check className="w-3.5 h-3.5 stroke-[3] text-emerald-650" /> Conciliado contra Planilla</p>
                     </div>
                   </div>
 
@@ -2361,7 +2361,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                       <table className="w-full text-left text-[11px]">
                         <thead className="bg-[#fcfdfe] text-[9px] text-slate-500 font-black uppercase border-b border-slate-100 select-none print:bg-slate-50">
                           <tr>
-                            <th className="px-4 py-2">Cta ACMS</th>
+                            <th className="px-4 py-2">Cta Contable</th>
                             <th className="px-4 py-2">Concepto Ingreso</th>
                             <th className="px-4 py-2">Destino Fondo</th>
                             <th className="px-4 py-2 text-right">Ofrenda Local</th>
@@ -2647,7 +2647,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
             <div className="lg:col-span-5 space-y-6">
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="pb-2 border-b border-slate-100 select-none">
-                  <h3 className="font-sans text-xs font-black text-[#1552a6] uppercase tracking-wider">Planillas e Importación ACMS</h3>
+                  <h3 className="font-sans text-xs font-black text-[#1552a6] uppercase tracking-wider">Planillas e Importación Oficial</h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">Sincroniza el libro banco local con registros informáticos corporativos</p>
                 </div>
 
@@ -2664,7 +2664,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                       <option value="tesoreria">T-01: Movimientos de Tesorería (Entradas y Salidas)</option>
                       <option value="departamento">D-02: Movimientos por Departamento (Estados de Fondos)</option>
                       <option value="banco">CB-04: Cartolas Conciliación Bancaria (por Cuenta)</option>
-                      <option value="balance">B-01: Balance de Comprobación General ACMS</option>
+                      <option value="balance">B-01: Balance de Comprobación General Ofrendas y Diezmos</option>
                       <option value="ofrendas">D-09: Distribución Auxiliar Ofrendas (Art. 6)</option>
                     </select>
                   </div>
@@ -2787,7 +2787,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                     }`}
                   >
                     <Upload className="w-7 h-7 mx-auto text-slate-400 animate-bounce mb-2" />
-                    <p className="text-xs font-black text-slate-700">Arrastra tu reporte de ACMS aquí</p>
+                    <p className="text-xs font-black text-slate-700">Arrastra tu reporte oficial aquí</p>
                     <p className="text-[10px] text-slate-400 mt-0.5 mb-3 leading-normal font-medium">
                       Soporta balances generales exportados y cartolas de depósitos bancarios de la DSA
                     </p>
@@ -2812,7 +2812,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                     Simular Libros Corporativos
                   </h4>
                   <p className="text-[10px] text-slate-500 leading-normal mt-0.5 font-medium">
-                    Haz clic para simular la importación de planillas recolectadas desde los portales de ACMS Iglesia:
+                    Haz clic para simular la importación de planillas recolectadas desde los portales centrales:
                   </p>
                 </div>
 
@@ -2823,7 +2823,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                   >
                     <FileSpreadsheet className="w-4.5 h-4.5 text-[#10ae5b] shrink-0" />
                     <div>
-                      <span className="block leading-none font-black text-slate-800">Cargar Balance de Comprobación (ACMS)</span>
+                      <span className="block leading-none font-black text-slate-800">Cargar Balance de Comprobación Oficial</span>
                       <span className="text-[9px] text-slate-400 font-medium">Formato: Excel .xlsx</span>
                     </div>
                   </button>
@@ -2914,7 +2914,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                   <div className="py-24 text-center space-y-4 text-slate-400 text-xs select-none">
                     <Upload className="w-12 h-12 mx-auto text-slate-300" />
                     <div className="space-y-1.5 font-bold max-w-xs mx-auto leading-relaxed">
-                      <p className="text-slate-700 font-black font-sans uppercase tracking-wider text-[11px]">Buzón de Sincronización ACMS</p>
+                      <p className="text-slate-700 font-black font-sans uppercase tracking-wider text-[11px]">Buzón de Sincronización Central</p>
                       <p className="text-[11px] font-semibold text-slate-400">Arrastra un archivo contable local o haz clic en las simulaciones laterales para ver cómo opera el inyector de datos.</p>
                     </div>
                   </div>
@@ -2925,7 +2925,7 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
                     
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3 select-none">
                       <div>
-                        <span className="text-[10px] font-black text-[#1552a6] tracking-widest uppercase block mb-0.5 font-sans">Estructura Leída ACMS</span>
+                        <span className="text-[10px] font-black text-[#1552a6] tracking-widest uppercase block mb-0.5 font-sans">Estructura Leída Oficial</span>
                         <h4 className="text-sm font-black text-[#1552a6] leading-tight flex items-center gap-1.5 font-sans">
                           {parsedData.title}
                         </h4>

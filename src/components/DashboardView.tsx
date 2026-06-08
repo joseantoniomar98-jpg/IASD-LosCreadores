@@ -249,7 +249,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         // Retrieve dynamic account balances
         const getBankBalance = (id: string, fallback: number) => {
           const found = bankAccounts?.find(b => b.id === id);
-          return found ? found.balance : fallback;
+          return (found && typeof found.balance === "number") ? found.balance : fallback;
         };
 
         const balanceItau = getBankBalance("ba-1", 1500000);
@@ -257,7 +257,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         const cajaFijaSum = balanceItau + balanceFalabella;
 
         // Sum of all department budgets (total budget of the church)
-        const totalPresupuestoIglesia = departments.reduce((acc, d) => acc + d.budgetAllocated, 0);
+        const totalPresupuestoIglesia = departments.reduce((acc, d) => acc + (d.budgetAllocated ?? 0), 0);
 
         // Sum of both bank accounts
         const totalBancos = balanceItau + balanceFalabella;
@@ -265,12 +265,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         // Sum of unpaid expense renditions ("Gastos a Pagar")
         const gastosAPagarSum = renditions
           .filter(r => r.pagada !== true)
-          .reduce((acc, curr) => acc + curr.totalAmount, 0);
+          .reduce((acc, curr) => acc + (curr.totalAmount ?? 0), 0);
 
         // Sum of approved fund requests pending rendition ("Fondos por rendir" where cerrado !== true)
         const fondosPorRendirSum = fundRequests
           .filter(r => r.status === "Aprobada" && r.cerrado !== true)
-          .reduce((acc, curr) => acc + curr.amount, 0);
+          .reduce((acc, curr) => acc + (curr.amount ?? 0), 0);
 
         // "el gráfico de adelanto muestra los fondos por rendir pendientes y vencidos (después de un mes vencen)"
         const referenceTime = new Date("2026-05-30");
@@ -286,12 +286,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           const diffMs = referenceTime.getTime() - expDate.getTime();
           const diffDays = diffMs / (1000 * 60 * 60 * 24);
 
+          const amt = r.amount ?? 0;
           // If more than 30 days have elapsed since expectedDate, it's expired (vencido)
           if (diffDays > 30) {
-            vencidosAdelantosAmount += r.amount;
+            vencidosAdelantosAmount += amt;
             vencidosAdelantosCount++;
           } else {
-            pendingAdelantosAmount += r.amount;
+            pendingAdelantosAmount += amt;
             pendingAdelantosCount++;
           }
         });
@@ -664,21 +665,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="font-extrabold text-slate-500">Para:</span> <span className="font-mono text-blue-600 font-semibold font-extrabold select-all">{selectedMail.userEmail || currentUser.email}</span>
               </div>
               <div>
-                <span className="font-extrabold text-slate-500">Asunto:</span> <span className="font-extrabold text-slate-800">{`[ACMS Alerta] ${selectedMail.title}`}</span>
+                <span className="font-extrabold text-slate-500">Asunto:</span> <span className="font-extrabold text-slate-800">{`[Alerta del Sistema] ${selectedMail.title}`}</span>
               </div>
               <div className="text-[10px] text-slate-400 font-mono font-bold pt-1">
-                Filtro SMTP: Auto-generado por el Sabor de Auditoría ACMS
+                Filtro SMTP: Auto-generado por la Auditoría del Sistema
               </div>
             </div>
 
             <div className="p-5 text-sm text-slate-700 space-y-3 whitespace-pre-line text-left font-sans bg-slate-50 border-b border-slate-150 min-h-[140px]">
               {`Estimado usuario,
 
-              Le informamos que se ha registrado una actividad en el sistema ACMS:
+              Le informamos que se ha registrado una actividad en el sistema central:
 
               Detalle: ${selectedMail.message}
 
-              Este es un correo automático generado por el sistema ACMS de la Iglesia Los Creadores.`}
+              Este es un correo automático generado por el portal de la Iglesia Los Creadores.`}
             </div>
 
             <div className="px-5 py-3.5 bg-slate-100 flex justify-end gap-3">
@@ -727,7 +728,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <td className="px-5 py-3 font-extrabold text-[#1552a6]">{d.name}</td>
                       <td className="px-5 py-3 text-slate-500">{d.director}</td>
                       <td className="px-5 py-3 text-right font-mono text-slate-800 font-extrabold">
-                        ${d.budgetAllocated.toLocaleString("es-CL")}
+                        ${(d.budgetAllocated ?? 0).toLocaleString("es-CL")}
                       </td>
                       <td className="px-5 py-3 text-center">
                         <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wide ${
@@ -747,7 +748,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
           <div className="p-3.5 bg-slate-50/50 border-t border-slate-100 flex justify-center text-[10px] text-slate-400 font-bold select-none uppercase tracking-wide">
-            Información sincronizada con el Sistema ACMS
+            Información sincronizada con la Planilla Central
           </div>
         </div>
 

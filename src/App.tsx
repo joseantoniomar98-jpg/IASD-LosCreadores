@@ -65,6 +65,24 @@ export default function App() {
   // Responsive mobile sidebar state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
+  // Theme state for Dark Mode (ACMS-like)
+  const [theme, setTheme] = useState<"light" | "dark" | "">(() => {
+    return (localStorage.getItem("iasd_theme") as "light" | "dark") || "dark";
+  });
+
+  useEffect(() => {
+    if (!theme) return;
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("iasd_theme", theme);
+  }, [theme]);
+
+  // Drawer state for sliding User Settings
+  const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
+
   // Core global data collections as React states to make the entire app fully functional
   const [activeTab, setActiveTab] = useState<Tab>(Tab.DASHBOARD);
   const [users, setUsers] = useState<User[]>(USERS_SEED);
@@ -318,25 +336,42 @@ export default function App() {
     let unsubscribers: (() => void)[] = [];
     
     async function initFirebaseData() {
+      const safeSeed = async (colName: string, seedData: any[]) => {
+        try {
+          await seedCollectionIfEmpty(colName, seedData);
+        } catch (error) {
+          console.warn(`[Firebase Seed Warning] Failed to seed collection '${colName}':`, error);
+        }
+      };
+
+      const safeSubscribe = <T,>(colName: string, onUpdate: (items: T[]) => void) => {
+        try {
+          const unsub = subscribeCollection<T>(colName, onUpdate);
+          unsubscribers.push(unsub);
+        } catch (error) {
+          console.error(`[Firebase Subscription Error] Failed subscribing to '${colName}':`, error);
+        }
+      };
+
       try {
-        await seedCollectionIfEmpty("users", USERS_SEED);
-        await seedCollectionIfEmpty("cargos", CARGOS_SEED);
-        await seedCollectionIfEmpty("departments", DEPARTMENTS_SEED);
-        await seedCollectionIfEmpty("transfers", TRANSFERS_SEED);
-        await seedCollectionIfEmpty("fundRequests", FUND_REQUESTS_SEED);
-        await seedCollectionIfEmpty("renditions", EXPENSE_RENDITIONS_SEED);
-        await seedCollectionIfEmpty("meetings", MEETINGS_SEED);
-        await seedCollectionIfEmpty("spaces", SPACES_SEED);
-        await seedCollectionIfEmpty("bankAccounts", BANK_ACCOUNTS_SEED);
-        await seedCollectionIfEmpty("bankTransactions", BANK_TRANSACTIONS_SEED);
-        await seedCollectionIfEmpty("boardActas", boardActas);
-        await seedCollectionIfEmpty("tesoreriaBalances", tesoreriaBalances);
-        await seedCollectionIfEmpty("boardVotos", boardVotos);
-        await seedCollectionIfEmpty("notifications", notifications);
-        await seedCollectionIfEmpty("resources", resources);
+        await safeSeed("users", USERS_SEED);
+        await safeSeed("cargos", CARGOS_SEED);
+        await safeSeed("departments", DEPARTMENTS_SEED);
+        await safeSeed("transfers", TRANSFERS_SEED);
+        await safeSeed("fundRequests", FUND_REQUESTS_SEED);
+        await safeSeed("renditions", EXPENSE_RENDITIONS_SEED);
+        await safeSeed("meetings", MEETINGS_SEED);
+        await safeSeed("spaces", SPACES_SEED);
+        await safeSeed("bankAccounts", BANK_ACCOUNTS_SEED);
+        await safeSeed("bankTransactions", BANK_TRANSACTIONS_SEED);
+        await safeSeed("boardActas", boardActas);
+        await safeSeed("tesoreriaBalances", tesoreriaBalances);
+        await safeSeed("boardVotos", boardVotos);
+        await safeSeed("notifications", notifications);
+        await safeSeed("resources", resources);
 
         // Seed settings collection
-        await seedCollectionIfEmpty("settings", [
+        await safeSeed("settings", [
           { id: "votosPlazoLimite", value: "2026-06-03" },
           { id: "expenseCategories", value: [
             "Alimentación",
@@ -394,57 +429,57 @@ export default function App() {
           }}
         ]);
 
-        unsubscribers.push(subscribeCollection<User>("users", (items) => {
+        safeSubscribe<User>("users", (items) => {
           if (items.length > 0) {
             setUsers(items);
             setUsersLoadedFromDB(true);
           }
-        }));
-        unsubscribers.push(subscribeCollection<Cargo>("cargos", (items) => {
+        });
+        safeSubscribe<Cargo>("cargos", (items) => {
           if (items.length > 0) setCargos(items);
-        }));
-        unsubscribers.push(subscribeCollection<Department>("departments", (items) => {
+        });
+        safeSubscribe<Department>("departments", (items) => {
           if (items.length > 0) setRawDepartments(items);
-        }));
-        unsubscribers.push(subscribeCollection<Transfer>("transfers", (items) => {
+        });
+        safeSubscribe<Transfer>("transfers", (items) => {
           setTransfers(items);
-        }));
-        unsubscribers.push(subscribeCollection<FundRequest>("fundRequests", (items) => {
+        });
+        safeSubscribe<FundRequest>("fundRequests", (items) => {
           setFundRequests(items);
-        }));
-        unsubscribers.push(subscribeCollection<ExpenseRendition>("renditions", (items) => {
+        });
+        safeSubscribe<ExpenseRendition>("renditions", (items) => {
           setRenditions(items);
-        }));
-        unsubscribers.push(subscribeCollection<Meeting>("meetings", (items) => {
+        });
+        safeSubscribe<Meeting>("meetings", (items) => {
           setMeetings(items);
-        }));
-        unsubscribers.push(subscribeCollection<SpaceResource>("spaces", (items) => {
+        });
+        safeSubscribe<SpaceResource>("spaces", (items) => {
           if (items.length > 0) setSpaces(items);
-        }));
-        unsubscribers.push(subscribeCollection<BankAccount>("bankAccounts", (items) => {
+        });
+        safeSubscribe<BankAccount>("bankAccounts", (items) => {
           if (items.length > 0) setBankAccounts(items);
-        }));
-        unsubscribers.push(subscribeCollection<BankTransaction>("bankTransactions", (items) => {
+        });
+        safeSubscribe<BankTransaction>("bankTransactions", (items) => {
           setBankTransactions(items);
-        }));
-        unsubscribers.push(subscribeCollection<BoardActa>("boardActas", (items) => {
+        });
+        safeSubscribe<BoardActa>("boardActas", (items) => {
           setBoardActas(items);
-        }));
-        unsubscribers.push(subscribeCollection<TesoreriaBalance>("tesoreriaBalances", (items) => {
+        });
+        safeSubscribe<TesoreriaBalance>("tesoreriaBalances", (items) => {
           setTesoreriaBalances(items);
-        }));
-        unsubscribers.push(subscribeCollection<BoardVoto>("boardVotos", (items) => {
+        });
+        safeSubscribe<BoardVoto>("boardVotos", (items) => {
           setBoardVotos(items);
-        }));
-        unsubscribers.push(subscribeCollection<SystemNotification>("notifications", (items) => {
+        });
+        safeSubscribe<SystemNotification>("notifications", (items) => {
           const realNotifs = items.filter(n => !["notif-1", "notif-2", "notif-3"].includes(n.id));
           setNotifications(realNotifs);
-        }));
-        unsubscribers.push(subscribeCollection<ResourceFile>("resources", (items) => {
+        });
+        safeSubscribe<ResourceFile>("resources", (items) => {
           if (items.length > 0) setResources(items);
-        }));
+        });
 
-        unsubscribers.push(subscribeCollection<{ id: string; value: any }>("settings", (items) => {
+        safeSubscribe<{ id: string; value: any }>("settings", (items) => {
           items.forEach(item => {
             if (item.id === "votosPlazoLimite" && item.value) {
               setVotosPlazoLimite(item.value);
@@ -460,7 +495,7 @@ export default function App() {
               setCategoryColors(item.value);
             }
           });
-        }));
+        });
       } catch (error) {
         console.error("Firebase Sync Hook Error: ", error);
       }
@@ -1182,15 +1217,15 @@ export default function App() {
       />
 
       {/* Main Workspace Frame container */}
-      <main className="flex-1 min-h-screen pl-0 md:pl-[260px] lg:pl-[260px] bg-[#eef1f6] flex flex-col min-w-0 w-full overflow-x-hidden">
+      <main className="flex-1 min-h-screen pl-0 md:pl-[260px] lg:pl-[260px] bg-[#eef1f6] dark:bg-[#0b0f19] flex flex-col min-w-0 w-full overflow-x-hidden transition-colors duration-300">
 
         {/* Sticky Mobile Top Bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 md:hidden lg:hidden shadow-xs shrink-0 select-none">
+        <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white dark:bg-[#121829] border-b border-slate-200 dark:border-slate-800 md:hidden lg:hidden shadow-sm shrink-0 select-none">
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
               type="button"
-              className="p-1.5 text-slate-600 hover:text-[#1552a6] hover:bg-slate-50 border border-slate-150 rounded-xl outline-none cursor-pointer flex items-center justify-center transition-colors shadow-xs"
+              className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-[#1552a6] hover:bg-slate-50 dark:hover:bg-[#1c243c] border border-slate-150 dark:border-slate-800 rounded-xl outline-none cursor-pointer flex items-center justify-center transition-colors shadow-xs"
               title="Abrir menú"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1198,7 +1233,7 @@ export default function App() {
               </svg>
             </button>
             <div>
-              <span className="text-[12px] font-black text-[#1552a6] font-sans tracking-tight uppercase block leading-none">
+              <span className="text-[12px] font-black text-[#1552a6] dark:text-sky-400 font-sans tracking-tight uppercase block leading-none">
                 {getCleanTabName(activeTab)}
               </span>
               <span className="text-[8.5px] text-slate-400 font-bold block mt-1 tracking-wider uppercase font-mono leading-none">
@@ -1208,16 +1243,132 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="text-right leading-none select-none">
-              <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">{currentUser.roles[0].substring(0, 15)}</p>
-            </div>
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1552a6]/5 to-indigo-100/10 border border-slate-200 flex items-center justify-center text-[#1552a6] font-sans text-xs font-black">
-              {currentUser.name.substring(0, 2).toUpperCase()}
-            </div>
+            {/* Quick Mobile Theme toggle */}
+            <button 
+              onClick={() => setTheme(prev => prev === "dark" ? "light" : "dark")}
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-amber-400 bg-slate-50 dark:bg-[#0e1220] hover:bg-slate-100 dark:hover:bg-[#1c243c] transition-all cursor-pointer flex items-center justify-center"
+              title="Cambiar Modo"
+            >
+              {theme === "dark" ? (
+                <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.46 5.05L5.75 4.343a1 1 0 10-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5 text-slate-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                </svg>
+              )}
+            </button>
+
+            {/* Clickable Mobile User Profile */}
+            <button 
+              onClick={() => setIsUserSettingsOpen(true)}
+              className="flex items-center gap-1.5 text-left border border-slate-200 dark:border-slate-800 p-1 rounded-xl bg-slate-50 dark:bg-[#0e1220] hover:bg-slate-100 dark:hover:bg-[#1a223f] transition-all cursor-pointer"
+            >
+              <div className="text-right leading-none select-none pl-1 hidden sm:block">
+                <p className="text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{currentUser.roles[0].substring(0, 10)}..</p>
+              </div>
+              <div className="w-7 h-7 rounded-lg bg-[#1552a6]/10 dark:bg-sky-500/10 flex items-center justify-center text-[#1552a6] dark:text-sky-400 font-sans text-[10px] font-black overflow-hidden border border-slate-200 dark:border-slate-750">
+                {currentUser.imageUrl ? (
+                  <img src={currentUser.imageUrl} alt="User" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  currentUser.avatarLetter || currentUser.name.substring(0, 2).toUpperCase()
+                )}
+              </div>
+            </button>
           </div>
         </header>
 
         <div className="max-w-7xl mx-auto px-4 md:px-8 pt-4 md:pt-8 pb-4 space-y-6 w-full min-w-0">
+
+          {/* Persistent Desktop Top Header bar (ACMS Capsules style) */}
+          <div className="hidden md:flex lg:flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/85 pb-4 mb-3 select-none">
+            {/* Left: Section Indicator & supporting badge */}
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black tracking-widest text-[#1552a6] dark:text-sky-400 uppercase font-mono">
+                  Sistema de Gestión Eclesiástica
+                </span>
+                <h2 className="text-lg font-extrabold text-slate-800 dark:text-white capitalize">
+                  {getCleanTabName(activeTab)}
+                </h2>
+              </div>
+              {activeTab === Tab.DASHBOARD && (
+                <a 
+                  href="#support"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleGoToTab(Tab.RECURSOS_DOCUMENTOS);
+                  }}
+                  className="flex items-center gap-1.5 text-[11px] font-black text-[#1552a6] dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 px-3 py-1 rounded-full hover:bg-sky-100 dark:hover:bg-sky-950/80 transition-all border border-[#1552a6]/20 shadow-xxs"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  Material de Apoyo
+                </a>
+              )}
+            </div>
+
+            {/* Right: ACMS Styled Action Pills */}
+            <div className="flex items-center gap-3">
+              {/* Light / Dark Mode Toggle Button */}
+              <button 
+                onClick={() => setTheme(prev => prev === "dark" ? "light" : "dark")}
+                className="p-2.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#121829] hover:bg-slate-100 dark:hover:bg-[#1c243c] text-indigo-600 dark:text-amber-400 transition-all cursor-pointer shadow-sm active:scale-95 flex items-center justify-center"
+                title="Alternar tema claro/oscuro"
+              >
+                {theme === "dark" ? (
+                  <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.46 5.05L5.75 4.343a1 1 0 10-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-slate-700" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                  </svg>
+                )}
+              </button>
+
+              {/* Capsule A: Adventist Church info (los Creadores) */}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#121829] border border-slate-200 dark:border-slate-800 rounded-full shadow-sm text-left">
+                <div className="w-7 h-7 rounded-full bg-[#1552a6] flex items-center justify-center text-white shrink-0 shadow-inner overflow-hidden border border-slate-150 dark:border-slate-700">
+                  <svg className="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <div className="leading-tight pr-1 select-none">
+                  <p className="text-[11px] font-black text-slate-800 dark:text-white leading-none">los Creadores</p>
+                  <p className="text-[8.5px] font-bold text-[#1552a6] dark:text-sky-450 mt-0.5 whitespace-nowrap leading-none">Temuco Nor Poniente - ASACh</p>
+                </div>
+              </div>
+
+              {/* Capsule B: Clickable User Profile Pill */}
+              <button 
+                onClick={() => setIsUserSettingsOpen(true)}
+                className="flex items-center gap-2.5 px-3 py-1.5 bg-white dark:bg-[#121829] border border-slate-200 dark:border-slate-800 rounded-full shadow-sm text-left hover:border-[#1552a6]/40 dark:hover:border-sky-400/40 hover:bg-slate-50 dark:hover:bg-[#1c243c] transition-all cursor-pointer group active:scale-98"
+              >
+                <div className="w-7 h-7 rounded-full bg-[#1552a6]/10 dark:bg-sky-500/10 flex items-center justify-center text-[#1552a6] dark:text-sky-400 text-xxs font-black shrink-0 shadow-inner overflow-hidden border border-slate-200 dark:border-slate-700">
+                  {currentUser.imageUrl ? (
+                    <img 
+                      src={currentUser.imageUrl} 
+                      alt="User profile" 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    currentUser.avatarLetter || currentUser.name.substring(0, 2).toUpperCase()
+                  )}
+                </div>
+                <div className="leading-tight pr-1.5">
+                  <p className="text-[11px] font-black text-slate-800 dark:text-white group-hover:text-[#1552a6] dark:group-hover:text-sky-450 transition-colors leading-none">{currentUser.name}</p>
+                  <p className="text-[8.5px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 leading-none">{currentUser.roles[0]}</p>
+                </div>
+                <svg className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          </div>
           
           {/* Active Tab Router */}
           {activeTab === Tab.DASHBOARD && (
@@ -1706,6 +1857,210 @@ export default function App() {
 
         </div>
       </main>
+
+      {/* Sliding Right Drawer: Ajustes de Usuario (ACMS Style) */}
+      {isUserSettingsOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden select-none animate-fade-in" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 overflow-hidden">
+            {/* Dark glass backdrop overlay */}
+            <div 
+              onClick={() => setIsUserSettingsOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity cursor-pointer duration-300" 
+              aria-hidden="true"
+            ></div>
+
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+              {/* Drawer Panel */}
+              <div className="pointer-events-auto w-screen max-w-md transform transition-all duration-300 ease-in-out">
+                <div className="flex h-full flex-col bg-white dark:bg-[#0e1220] border-l border-slate-200 dark:border-slate-800 shadow-2xl">
+                  
+                  {/* Drawer Header */}
+                  <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-[#121829]/50">
+                    <h2 className="text-sm font-black text-[#1552a6] dark:text-sky-400 uppercase tracking-widest font-sans" id="slide-over-title">
+                      Ajustes De Usuario
+                    </h2>
+                    <button 
+                      onClick={() => setIsUserSettingsOpen(false)}
+                      type="button" 
+                      className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-[#1c243c] hover:text-slate-600 dark:hover:text-white transition-all cursor-pointer"
+                    >
+                      <span className="sr-only">Cerrar</span>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Drawer Body with Custom Scrollbar */}
+                  <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 custom-scrollbar">
+                    
+                    {/* 1. Portrait & User Info */}
+                    <div className="bg-slate-50 dark:bg-[#121829] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col items-center text-center shadow-xs">
+                      <div className="w-20 h-20 rounded-full bg-[#1552a6]/10 dark:bg-sky-500/10 flex items-center justify-center text-[#1552a6] dark:text-sky-400 text-lg font-black shrink-0 shadow-inner overflow-hidden border-2 border-slate-200 dark:border-slate-700 relative group mb-4">
+                        {currentUser.imageUrl ? (
+                          <img 
+                            src={currentUser.imageUrl} 
+                            alt="User" 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          currentUser.avatarLetter || currentUser.name.substring(0, 2).toUpperCase()
+                        )}
+                      </div>
+                      <h3 className="text-md font-extrabold text-slate-800 dark:text-white mb-1 leading-tight font-sans">
+                        {currentUser.name}
+                      </h3>
+                      <p className="text-xs text-[#1552a6] dark:text-sky-400 font-bold mb-3 uppercase tracking-wider font-mono">
+                        {currentUser.roles.join(" / ")}
+                      </p>
+                      
+                      {/* Interactive badge of active state */}
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/20 shadow-xxs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Sesión Activa
+                      </span>
+                    </div>
+
+                    {/* 2. Actions List */}
+                    <div className="space-y-1">
+                      <button 
+                        onClick={() => {
+                          handleGoToTab(Tab.CONF_MI_PERFIL);
+                          setIsUserSettingsOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:text-[#1552a6] dark:hover:text-sky-400 hover:bg-[#eef4fc] dark:hover:bg-[#1c243c] rounded-xl border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800/80 transition-all cursor-pointer group font-medium"
+                      >
+                        <div className="flex items-center gap-3">
+                          <svg className="w-5 h-5 text-slate-400 group-hover:text-[#1552a6] dark:group-hover:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span>Perfil de Usuario</span>
+                        </div>
+                        <svg className="w-4 h-4 text-slate-300 group-hover:text-[#1552a6] dark:group-hover:text-sky-400 transform group-hover:translate-x-0.5 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          handleGoToTab(Tab.CONF_MI_PERFIL);
+                          setIsUserSettingsOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:text-[#1552a6] dark:hover:text-sky-400 hover:bg-[#eef4fc] dark:hover:bg-[#1c243c] rounded-xl border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800/80 transition-all cursor-pointer group font-medium"
+                      >
+                        <div className="flex items-center gap-3">
+                          <svg className="w-5 h-5 text-slate-400 group-hover:text-[#1552a6] dark:group-hover:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          <span>Cambiar contraseña</span>
+                        </div>
+                        <svg className="w-4 h-4 text-slate-300 group-hover:text-[#1552a6], dark:group-hover:text-sky-400 transform group-hover:translate-x-0.5 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          alert("Configuración de seguridad corporativa encriptada por IASD División Sudamericana.");
+                        }}
+                        className="w-full flex items-center justify-between text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:text-[#1552a6] dark:hover:text-sky-400 hover:bg-[#eef4fc] dark:hover:bg-[#1c243c] rounded-xl border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800/80 transition-all cursor-pointer group font-medium"
+                      >
+                        <div className="flex items-center gap-3">
+                          <svg className="w-5 h-5 text-slate-400 group-hover:text-[#1552a6] dark:group-hover:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                          <span>Información de Seguridad</span>
+                        </div>
+                        <svg className="w-4 h-4 text-slate-300 group-hover:text-[#1552a6] dark:group-hover:text-sky-400 transform group-hover:translate-x-0.5 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          alert("Sistema de Gestión de Tesorería v4.2.1-stable. Todos los libros consolidados.");
+                        }}
+                        className="w-full flex items-center justify-between text-left px-4 py-3 text-sm text-slate-700 dark:text-slate-300 hover:text-[#1552a6] dark:hover:text-sky-400 hover:bg-[#eef4fc] dark:hover:bg-[#1c243c] rounded-xl border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800/80 transition-all cursor-pointer group font-medium"
+                      >
+                        <div className="flex items-center gap-3">
+                          <svg className="w-5 h-5 text-slate-400 group-hover:text-[#1552a6] dark:group-hover:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                          </svg>
+                          <span>Notas de la versión</span>
+                        </div>
+                        <svg className="w-4 h-4 text-slate-300 group-hover:text-[#1552a6] dark:group-hover:text-sky-400 transform group-hover:translate-x-0.5 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* 3. Theme Toggle Section */}
+                    <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <svg className="w-5 h-5 text-[#1552a6] dark:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                        </svg>
+                        <span className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider font-sans">
+                          Tema Visual
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <button 
+                          onClick={() => setTheme("light")}
+                          className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl border transition-all cursor-pointer ${
+                            theme === "light" 
+                              ? "bg-[#eef4fc] text-[#1552a6] border-[#1552a6]/25" 
+                              : "bg-white dark:bg-[#121829] text-slate-500 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-[#1c243c]"
+                          }`}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M14 12a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          <span>Claro</span>
+                        </button>
+
+                        <button 
+                          onClick={() => setTheme("dark")}
+                          className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl border transition-all cursor-pointer ${
+                            theme === "dark" 
+                              ? "bg-[#1552a6] text-white border-transparent" 
+                              : "bg-white dark:bg-[#121829] text-slate-500 border-slate-200 dark:border-slate-800 hover:bg-slate-50"
+                          }`}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                          </svg>
+                          <span>Oscuro</span>
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Drawer Footer */}
+                  <div className="p-6 bg-slate-50/50 dark:bg-[#121829]/30 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                    <button 
+                      onClick={() => {
+                        setIsUserSettingsOpen(false);
+                        handleLogout();
+                      }}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-black text-sm rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Cerrar Sesión (Salir)
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

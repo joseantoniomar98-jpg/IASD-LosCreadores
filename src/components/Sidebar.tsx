@@ -185,7 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={onClose}
         />
       )}
-      <aside className={`w-[260px] h-screen fixed top-0 bottom-0 left-0 bg-white border-r border-[#e2e8f0] flex flex-col p-4 z-50 text-slate-700 select-none transition-transform duration-300 ease-in-out md:translate-x-0 lg:translate-x-0 ${
+      <aside className={`w-[260px] h-screen fixed top-0 bottom-0 left-0 bg-white dark:bg-[#0e1220] border-r border-[#e2e8f0] dark:border-slate-800 flex flex-col p-4 z-50 text-slate-700 dark:text-slate-300 select-none transition-transform duration-300 ease-in-out md:translate-x-0 lg:translate-x-0 ${
         isOpen ? "translate-x-0" : "-translate-x-full"
       }`}>
       
@@ -735,23 +735,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {configOpen && (
               <div className="space-y-0.5 pl-1.5 border-l border-slate-100">
                 
-                {/* Mi Perfil */}
-                {isTabPermitted(Tab.CONF_MI_PERFIL) && (
-                  <button
-                    onClick={() => setActiveTab(Tab.CONF_MI_PERFIL)}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-left transition-all ${
-                      activeTab === Tab.CONF_MI_PERFIL
-                        ? "bg-[#eef4fc] text-[#1552a6] font-extrabold"
-                        : "text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <UserCheck className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                      <span className="text-[11px] font-medium leading-none truncate" title="Mi Perfil">Mi Perfil / Clave</span>
-                    </div>
-                  </button>
-                )}
-                
                 {/* Gestión de Usuarios */}
                 {isTabPermitted(Tab.CONF_USUARIOS) && (
                   <button
@@ -862,8 +845,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* User Profile Card at Bottom */}
-      <div className="mt-auto pt-2 shrink-0">
-        <div className="bg-slate-50 rounded-xl p-3 flex items-center gap-2 border border-slate-200/80">
+      <div className="mt-auto pt-2 shrink-0 md:hidden lg:hidden">
+        <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3 flex items-center gap-2 border border-slate-200/80 dark:border-slate-800">
           <div className="w-8 h-8 rounded-full bg-[#1552a6]/10 flex items-center justify-center text-[#1552a6] text-xxs font-bold shrink-0 shadow-inner overflow-hidden border border-slate-200">
             {currentUser.imageUrl ? (
               <img 

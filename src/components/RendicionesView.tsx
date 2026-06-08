@@ -296,7 +296,7 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
     doc.setTextColor(71, 85, 105);
     doc.text("ESTADO INFORME:", 142, y + 6);
     doc.text("MEDIO DE PAGO:", 142, y + 12);
-    doc.text("VOTO ACMS:", 142, y + 18);
+    doc.text("VOTO JUNTA:", 142, y + 18);
 
     doc.setFont("Helvetica", "bold");
     if (rend.status === "Aprobada") {
@@ -1091,7 +1091,7 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                               )}
                               {rend.acmsStatus === "Ingresado" && (
                                 <span className="bg-purple-100 text-purple-800 border border-purple-200 text-[7px] px-1.5 py-0.2 rounded font-black uppercase tracking-wider scale-95 origin-right">
-                                  ACMS
+                                  PLANILLA
                                 </span>
                               )}
                             </div>
@@ -1673,10 +1673,10 @@ export const RendicionesView: React.FC<RendicionesProps> = ({
                           </button>
                         </div>
 
-                        {/* 3. CAMBIAR ESTADO REGISTRO SISTEMA ACMS */}
+                        {/* 3. CAMBIAR ESTADO REGISTRO PLANILLA CENTRAL */}
                         <div className="space-y-1.5">
                           <label className="text-[10px] text-on-surface-variant font-black uppercase tracking-wider block">
-                            🖥️ Registro ACMS
+                            🖥️ Planilla Central
                           </label>
                           <button
                             type="button"

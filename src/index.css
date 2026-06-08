@@ -42,3 +42,198 @@ body {
   background: #a8c8ff;
 }
 
+/* ==========================================================================
+   ACMS Dark Mode Overrides
+   ========================================================================== */
+.dark {
+  --color-background: #0b0f19;                /* Genuine ACMS Deep Slack/Navy canvas background */
+  --color-surface-container: #121829;         /* Dark card background mapping to bg-white or containers */
+  --color-surface-container-lowest: #0a0d17;  /* Deep dark paneling */
+  --color-surface-container-low: #0f1322;
+  --color-surface-container-high: #1c243c;
+  --color-outline-variant: #1e293b;            /* Dark borders */
+  --color-primary-container: #10162a;
+
+  background-color: #0b0f19 !important;
+  color: #e2e8f0;
+}
+
+/* Generic layout adjustments when Dark Mode is active */
+.dark body {
+  background-color: #0b0f19 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark main {
+  background-color: #0b0f19 !important;
+}
+
+/* Remap hardcoded Tailwind utility classes to match ACMS Dark Mode palette */
+.dark .bg-white {
+  background-color: #121829 !important;
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-100/50,
+.dark .bg-[#f8fafc] {
+  background-color: #0e1222 !important;
+}
+
+.dark .bg-slate-100 {
+  background-color: #1b233a !important;
+}
+
+.dark .hover\:bg-slate-50\/50:hover,
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-[#f8fafc]:hover {
+  background-color: #1a223f !important;
+}
+
+.dark .hover\:bg-[#eef4fc]:hover {
+  background-color: #1c243c !important;
+}
+
+/* Borders mapping */
+.dark .border-slate-200,
+.dark .border-slate-100,
+.dark .border-slate-200\/80,
+.dark .border-slate-300,
+.dark .border-slate-200\/90 {
+  border-color: #1e293b !important;
+}
+
+.dark .divide-slate-100 > * + *,
+.dark .divide-slate-200 > * + * {
+  border-color: #1e293b !important;
+}
+
+/* Texts mapping */
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700 {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-slate-600,
+.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* Dashboard Action Widgets - Header controls */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #ffffff !important;
+}
+
+/* Interactive form elements */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #090c15 !important;
+  color: #f1f5f9 !important;
+  border-color: #1e293b !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #475569 !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: #1552a6 !important;
+  outline: none;
+}
+
+/* Interactive navigation inside sidebar in dark mode */
+.dark aside nav .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+.dark aside nav .hover\:bg-\[\#f8fafc\]:hover {
+  background-color: #161f38 !important;
+  color: #ffffff !important;
+}
+
+.dark aside nav .bg-\[\#eef4fc\] {
+  background-color: #1552a6 !important;
+  color: #ffffff !important;
+}
+
+.dark aside nav .bg-\[\#eef4fc\] svg {
+  color: #ffffff !important;
+}
+
+/* Custom scrollbars inside dark mode */
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #1552a6;
+}
+
+/* Calendar widget & dynamic lists overrides */
+.dark .bg-emerald-50,
+.dark .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+.dark .bg-red-50,
+.dark .bg-red-100 {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+/* Dynamic contrast corrections for dark mode fields */
+.dark .text-\[\#1552a6\] {
+  color: #38bdf8 !important;
+}
+
+.dark .text-primary {
+  color: #38bdf8 !important;
+}
+
+.dark .text-slate-950,
+.dark .text-gray-950 {
+  color: #f1f5f9 !important;
+}
+
+.dark .border-primary {
+  border-color: #1552a6 !important;
+}
+
+.dark .bg-\[\#eef4fc\] {
+  background-color: rgba(21, 82, 166, 0.2) !important;
+  color: #38bdf8 !important;
+}
+
+.dark .bg-\[\#eef1f6\] {
+  background-color: #0b0f19 !important;
+}
+
+.dark .bg-slate-200 {
+  background-color: #1e293b !important;
+}
+
+.dark select option {
+  background-color: #0e1220 !important;
+  color: #f1f5f9 !important;
+}
+
+
+
