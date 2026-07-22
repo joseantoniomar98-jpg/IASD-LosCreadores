@@ -2,9 +2,10 @@ import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'f
 import { auth } from './firebase';
 
 const provider = new GoogleAuthProvider();
-// Add granular scopes required for sending and reading Gmail emails
+// Add granular scopes required for sending and reading Gmail emails, plus Google Drive
 provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
 provider.addScope('https://www.googleapis.com/auth/gmail.send');
+provider.addScope('https://www.googleapis.com/auth/drive');
 
 let isSigningIn = false;
 
@@ -234,6 +235,148 @@ export const fetchRecentEmails = async (): Promise<GmailMessage[]> => {
     return detailedMessages;
   } catch (error) {
     console.error('Error fetching recent Gmail emails:', error);
+    return [];
+  }
+};
+
+// --- GOOGLE DRIVE API FUNCTIONS ---
+
+export interface DriveFile {
+  id: string;
+  name: string;
+  size?: string;
+  createdTime: string;
+  mimeType: string;
+}
+
+/**
+ * Checks if a specific folder ID exists in Google Drive
+ */
+export const checkDriveFolderExists = async (folderId: string): Promise<{ exists: boolean; name?: string; error?: string }> => {
+  const token = getAccessToken();
+  if (!token) return { exists: false, error: 'Auth token missing' };
+
+  try {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${folderId}?fields=id,name,mimeType`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        return { exists: false, error: 'No se encontró la carpeta con ese ID' };
+      }
+      const errTxt = await res.text();
+      return { exists: false, error: `Error ${res.status}: ${errTxt}` };
+    }
+
+    const data = await res.json();
+    if (data.mimeType !== 'application/vnd.google-apps.folder') {
+      return { exists: false, name: data.name, error: 'El ID especificado no es una carpeta' };
+    }
+
+    return { exists: true, name: data.name };
+  } catch (err: any) {
+    return { exists: false, error: err.message || 'Error de red' };
+  }
+};
+
+/**
+ * Creates a new folder in Google Drive
+ */
+export const createDriveFolder = async (folderName: string, parentId?: string): Promise<{ id: string; name: string } | null> => {
+  const token = getAccessToken();
+  if (!token) return null;
+
+  try {
+    const body: any = {
+      name: folderName,
+      mimeType: 'application/vnd.google-apps.folder'
+    };
+    if (parentId) {
+      body.parents = [parentId];
+    }
+
+    const res = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      throw new Error(`Error al crear carpeta: ${res.status}`);
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error('Error creating Drive folder:', error);
+    return null;
+  }
+};
+
+/**
+ * Uploads a file to Google Drive (Multipart: metadata + file content)
+ */
+export const uploadFileToDrive = async (
+  fileName: string,
+  mimeType: string,
+  fileBlob: Blob,
+  folderId: string
+): Promise<{ id: string; name: string } | null> => {
+  const token = getAccessToken();
+  if (!token) return null;
+
+  try {
+    const metadata = {
+      name: fileName,
+      parents: [folderId]
+    };
+
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', fileBlob);
+
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: form
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Drive Upload Error (${res.status}): ${errText}`);
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error('Error uploading file to Google Drive:', error);
+    return null;
+  }
+};
+
+/**
+ * Fetches files belonging to the configured folder ID
+ */
+export const fetchDriveFiles = async (folderId: string): Promise<DriveFile[]> => {
+  const token = getAccessToken();
+  if (!token) return [];
+
+  try {
+    const query = `'${folderId}' in parents and trashed = false`;
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,size,createdTime,mimeType)&orderBy=createdTime+desc`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    return data.files || [];
+  } catch (error) {
+    console.error('Error fetching files from Google Drive folder:', error);
     return [];
   }
 };
